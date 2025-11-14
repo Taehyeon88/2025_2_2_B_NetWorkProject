@@ -1,12 +1,17 @@
 -- 유저 테이블
 CREATE TABLE users(
-    user_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '유저 고유 번호',
+    user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '유저 고유 번호',
     username VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '로그인 ID',
     passward VARCHAR(255) NOT NULL COMMENT '해싱된 비밀번호',
     nickname VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '유저 닉네임',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
     logined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그인일'
 )
+
+-- 리프레쉬 토큰
+CREATE TABLE refrash_token(
+	token_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '리프레쉬 토큰',
+	user_id INT 
 
 -- 길드 테이블
 CREATE TABLE guilds(
@@ -22,6 +27,7 @@ CREATE TABLE guild_members(
     user_id int NOT NULL COMMENT '유저 고유번호(user.user_id)',
     guild_id int NOT NULL COMMENT '길드 고유번호(guilds.guild_id)',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '길드 가입일',
+    
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id)
@@ -41,6 +47,7 @@ CREATE TABLE chat_room_members(
     user_id int NOT NULL COMMENT '유저 고유번호(user.user_id)',
     chat_room_id int NOT NULL COMMENT '톡방 고유번호(chat_rooms.chat_id)',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '톡방 가입일',
+    
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (chat_room_id) REFERENCES chat_rooms(chat_room_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id, chat_room_id)
@@ -58,6 +65,7 @@ CREATE TABLE party_members(
     user_id int NOT NULL COMMENT '유저 고유번호(user.user_id)',
     party_id int NOT NULL COMMENT '파티 고유번호(parties.party_id)',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '파티 가입일',
+    
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (party_id) REFERENCES parties(party_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id)
@@ -73,17 +81,49 @@ CREATE TABLE message_permanent(
     'SYSTEM',
     'NOTICE'
     ) NOT NULL COMMENT'메세지 타입',
+    
     sender_id BIGINT UNSIGNED NULL COMMENT'보낸 유저 (users.user_id)',
     sender_nickname VARCHAR(100) NOT NULL COMMENT'보낸 유저 이름',
     message_text TEXT NOT NULL,
+    
     target_room_id BIGINT UNSIGNED NULL COMMENT'대상 톡방(chat_rooms.chat_room_id)',
     target_guild_id BIGINT UNSIGNED NULL COMMENT'대상 길드(guilds.guild_id)',
     target_user_id BIGINT UNSIGNED NULL COMMENT'대상 유저(users.user_id)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시간',
+    
     FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE SET NULL ON UPDATE CASCADE,
     FOREIGN KEY (target_guild_id) REFERENCES guilds(guild_id ) ON DELETE SET NULL ON UPDATE CASCADE,
     FOREIGN KEY (target_room_id) REFERENCES chat_rooms(chat_room_id) ON DELETE SET NULL ON UPDATE CASCADE,
-    FOREIGN KEY (target_user_id) REFERENCES users(user_id) ON DELETE SET NULL ON UPDATE CASCADE
+    FOREIGN KEY (target_user_id) REFERENCES users(user_id) ON DELETE SET NULL ON UPDATE CASCADE,
+    
+	 CHECK (
+    (message_type = 'CHAT_ROOM' 
+	 AND target_room_id IS NOT NULL 
+	 AND target_guild_id IS NULL 
+	 AND target_user_id IS NULL)
+	 
+    OR (message_type = 'GUILD' 
+	 AND target_guild_id IS NOT NULL 
+	 AND target_room_id IS NULL 
+	 AND target_user_id IS NULL)
+	 
+    OR (message_type = 'WHISPER' 
+	 AND target_user_id IS NOT NULL 
+	 AND target_room_id IS NULL 
+	 AND target_guild_id IS NULL)
+	 
+    OR (message_type IN ('SYSTEM', 'NOTICE') 
+	 AND target_room_id IS NULL 
+	 AND target_guild_id IS NULL 
+	 AND target_user_id IS NULL)
+	 ),
+	 
+	 INDEX idx_message_type (message_type),
+	 INDEX idx_type_created (message_type, created_at),
+	 INDEX idx_target_user (target_user_id),
+	 INDEX idx_target_room (target_room_id),
+	 INDEX idx_target_guild (target_guild_id) 
+	 
 )
 
 -- 메세지 임시 저장 테이블 (임시 보류)

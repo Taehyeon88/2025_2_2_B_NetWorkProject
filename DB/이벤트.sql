@@ -8,3 +8,4 @@ ON SCHEDULE
         DELETE FROM message_temporary
         WHERE created_at < NOW() - INTERVAL 7 DAY
     END
+    
