@@ -18,5 +18,11 @@ MODIFY COLUMN logouted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그아
 ALTER TABLE message_permanent
 MODIFY COLUMN message_text TEXT NOT NULL COMMENT '메세지 내용'
 
+-- refresh_tokens 테이블에 comment내용 수정
+ALTER TABLE refresh_tokens DROP PRIMARY KEY;
 
+ALTER TABLE refresh_tokens
+MODIFY COLUMN token_id INT UNSIGNED AUTO_INCREMENT COMMENT '리프레쉬 토큰 고유번호';
 
+ALTER TABLE refresh_tokens
+ADD PRIMARY KEY (token_id);

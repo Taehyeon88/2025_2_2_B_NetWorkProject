@@ -14,7 +14,7 @@ CREATE TABLE users(
 -- 리프레쉬 토큰
 CREATE TABLE refresh_tokens(
 	-- 토큰 정보
-	token_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '리프레쉬 토큰',
+	token_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '리프레쉬 토큰 고유 번호',
 	user_id INT UNSIGNED NOT NULL COMMENT '유저 고유 번호(users.user_id)',
 	refresh_token VARCHAR(500) NOT NULL UNIQUE KEY COMMENT '리프레쉬 토큰저장',
 	-- 시간 기록
@@ -23,6 +23,8 @@ CREATE TABLE refresh_tokens(
 	-- users 테이블과 연결
 	FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 )
+
+DROP TABLE refresh_tokens
 
 -- 길드 테이블
 CREATE TABLE guilds(
