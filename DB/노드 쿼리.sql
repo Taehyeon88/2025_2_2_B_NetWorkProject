@@ -24,3 +24,75 @@ DELETE FROM refresh_tokens WHERE token_id = ?
 
 -- 리프레쉬 토큰 호출
 SELECT user_id FROM refresh_tokens WHERE refresh_token = ?
+
+-- 로그인 이후 정보 전송 [채팅방 정보]
+SELECT c.chat_room_id, c.chat_room_name FROM chat_room_members cm 
+JOIN chat_rooms c ON c.chat_room_id = cm.chat_room_id
+WHERE cm.user_id = ?
+
+-- 로그인 이후 정보 전송 [길드 정보]
+SELECT g.guild_id, g.guild_name 
+FROM guild_members gm
+JOIN guilds g ON g.guild_id = gm.guild_id 
+WHERE gm.user_id = ?
+
+-- 길드 생성
+INSERT INTO guilds (guild_name) VALUES (?)
+
+-- 길드 가입
+INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)
+
+-- 길드 탈퇴
+DELETE FROM guild_members where user_id = ?
+
+-- 길드 맴버 조회
+SELECT g.guild_name, u.nickname, gm.joined_at 
+FROM guilds g 
+JOIN guild_members gm ON g.guild_id = gm.guild_id 
+JOIN users u ON u.user_id = gm.user_id 
+WHERE g.guild_id = ?
+
+-- 길드 채팅 메세지 호출
+SELECT sender_nickname, message_text, created_at 
+FROM message_permanent 
+WHERE guild_id = ?
+
+-- 톡방 생성
+INSERT INTO chat_rooms (chat_room_name) VALUES 
+(?)
+
+-- 톡방 가입
+INSERT INTO chat_room_members (user_id, chat_room_id) VALUES 
+(?, ?)
+
+-- 톡방 탈퇴
+DELETE FROM chat_room_members 
+where chat_room_id = ? AND user_id = ?
+
+-- 톡방 맴버 조회
+SELECT c.chat_room_name, u.nickname, cr.joined_at 
+FROM chat_rooms c 
+JOIN chat_room_members cr ON c.chat_room_id = cr.chat_room_id 
+JOIN users u ON u.user_id = cr.user_id 
+WHERE c.chat_room_id = ?
+
+-- 톡방 채팅 메세지 호출
+SELECT sender_nickname, message_text, created_at 
+FROM message_permanent 
+WHERE chat_rooms = ?
+
+-- 파티 생성
+INSERT INTO parties () VALUES ()
+
+-- 파티 가입
+INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)
+
+-- 파티 탈퇴
+DELETE FROM guild_members where user_id = ?
+
+-- 파티 맴버 조회
+SELECT u.nickname
+FROM parties p 
+JOIN party_members pm ON p.party_id = pm.party_id 
+JOIN users u ON u.user_id = pm.user_id 
+WHERE p.party_id = ?

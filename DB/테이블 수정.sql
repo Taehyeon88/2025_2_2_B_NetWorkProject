@@ -26,3 +26,20 @@ MODIFY COLUMN token_id INT UNSIGNED AUTO_INCREMENT COMMENT '리프레쉬 토큰 
 
 ALTER TABLE refresh_tokens
 ADD PRIMARY KEY (token_id);
+
+ALTER TABLE message_permanent
+MODIFY COLUMN message_type ENUM(
+    'CHAT_ROOM',
+    'GUILD',
+    'WHISPER',
+    'GLOBAL'
+    ) NOT NULL COMMENT'메세지 타입'
+    
+ALTER TABLE message_temporary
+MODIFY COLUMN message_type ENUM(
+    'GLOBAL',
+    'PARTY'
+    ) NOT NULL COMMENT'메세지 타입'
+
+
+    
