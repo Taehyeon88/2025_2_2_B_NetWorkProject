@@ -10,6 +10,8 @@ CREATE TABLE users(
     logined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그인일',
     logouted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그아웃일'
 )
+-- 테이블 삭제
+DROP TABLE users
 
 -- 리프레쉬 토큰
 CREATE TABLE refresh_tokens(
@@ -23,7 +25,7 @@ CREATE TABLE refresh_tokens(
 	-- users 테이블과 연결
 	FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 )
-
+-- 테이블 삭제
 DROP TABLE refresh_tokens
 
 -- 길드 테이블
@@ -35,6 +37,8 @@ CREATE TABLE guilds(
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '길드 생성일'
 )
+-- 테이블 삭제
+DROP TABLE guilds
 
 --길드 맴버 테이블
 CREATE TABLE guild_members(
@@ -50,6 +54,8 @@ CREATE TABLE guild_members(
     FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id)
 )
+-- 테이블 삭제
+DROP TABLE guild_members
 
 -- 채팅방 테이블
 CREATE TABLE chat_rooms(
@@ -60,6 +66,8 @@ CREATE TABLE chat_rooms(
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '톡방 생성일'
 )
+-- 테이블 삭제
+DROP TABLE chat_rooms
 
 -- 채팅방 맵버 테이블
 CREATE TABLE chat_room_members(
@@ -76,6 +84,8 @@ CREATE TABLE chat_room_members(
     FOREIGN KEY (chat_room_id) REFERENCES chat_rooms(chat_room_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id, chat_room_id)
 )
+-- 테이블 삭제
+DROP TABLE chat_room_members
 
 -- 파티 테이블
 CREATE TABLE parties(
@@ -84,10 +94,12 @@ CREATE TABLE parties(
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '파티 생성일'
 )
+-- 테이블 삭제
+DROP TABLE parties
 
 -- 파티 맴버 테이블
 CREATE TABLE party_members(
-	--파티 맴버 정보
+	-- 파티 맴버 정보
     party_member_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '파티 참여자 고유번호',
     user_id INT UNSIGNED NOT NULL COMMENT '유저 고유번호(user.user_id)',
     party_id INT UNSIGNED NOT NULL COMMENT '파티 고유번호(parties.party_id)',
@@ -97,9 +109,11 @@ CREATE TABLE party_members(
     -- users 테이블과 연결
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
    -- parties 테이블과 연결
-    FOREIGN KEY (party_id) REFERENCES parties(party_id) ON DELETE CASCADE,
-    UNIQUE KEY (user_id)
+    FOREIGN KEY (party_id) REFERENCES parties(party_id) ON DELETE CASCADE
+    -- UNIQUE KEY (user_id)
 )
+-- 테이블 삭제
+DROP TABLE party_members
 
 -- 메세지 영구 저장 테이블 (임시 보류)
 CREATE TABLE message_permanent(
@@ -140,8 +154,9 @@ CREATE TABLE message_permanent(
 	 INDEX idx_target_user (target_user_id),
 	 INDEX idx_target_room (target_room_id),
 	 INDEX idx_target_guild (target_guild_id) 
-	 
 )
+-- 테이블 삭제
+DROP TABLE message_permanent
 
 -- 메세지 임시 저장 테이블 (임시 보류)
 CREATE TABLE message_temporary(
@@ -166,3 +181,5 @@ CREATE TABLE message_temporary(
 	 INDEX idx_type_created (message_type, created_at),
     INDEX idx_created_at (created_at)
 )
+-- 테이블 삭제
+DROP TABLE message_temporary
