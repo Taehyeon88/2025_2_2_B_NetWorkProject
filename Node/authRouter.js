@@ -1,14 +1,11 @@
-//필요한 모듈 불러 오기
-require('dotenv').config();         //dotenv 모듈을 사용해서 환경 변수 로드
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 //Express 앱 생성 및 미들웨어 설정
-const app = express();
-app.use(bodyParser.json());
+const router = express.Router();
+router.use(bodyParser.json());
 
 //사용자 데이터 및 리프래시 토큰 저장소 (실체는 데이터베이스에서 진행)
 const users = [];
@@ -17,9 +14,8 @@ const refreshTokens = {};
 //환경 변수에서 시크릿 키와 포트 가져오기
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
-const PORT = process.env.PORT || 3000;
 
-app.post('/register', async(req, res) => {
+router.post('/register', async(req, res) => {
 
     const {username, password} = req.body;
     console.log("작동해용ㅇ");
@@ -36,7 +32,7 @@ app.post('/register', async(req, res) => {
 })
 
 //로그인 라우트
-app.post('/login', async(req, res) => {
+router.post('/login', async(req, res) => {
     const {username, password} = req.body;
     const user = users.find(user => user.username === username);
 
@@ -72,7 +68,7 @@ function authenticateToken(req, res, next) {
     })
 }
 
-app.get('/getNewToken', async(req, res) => {
+router.get('/token', async(req, res) => {
     const{accessToken, refreschToken} = req.body;
 
     if(accessToken == null) return res.sendStatus(401);
@@ -97,8 +93,4 @@ app.get('/getNewToken', async(req, res) => {
     })
 })
 
-app.listen(PORT, ()=> console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`));
-
-// console.log(JWT_SECRET);
-// console.log(REFRESH_TOKEN_SECRET);
-// console.log(PORT);
+module.exports = router;  //라우터 등록
