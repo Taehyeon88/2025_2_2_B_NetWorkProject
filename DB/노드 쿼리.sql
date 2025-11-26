@@ -2,17 +2,28 @@
 INSERT INTO users (username, passward, nickname) VALUES
 (?, ?, ?)
 
--- 회원 가입시 토큰 칸 추가
-INSERT INTO refresh_tokens (user_id, refresh_token) VALUES
-(?, ?)
+-- 아이디 중복 확인
+-- 0 : 중복 없음
+-- 1 : 중복 존재
+SELECT COUNT(*) FROM users WHERE username = ?
+
+-- 닉네임 중복 확인
+-- 0 : 중복 없음
+-- 1 : 중복 존재
+SELECT COUNT(*) FROM users WHERE nickname = ?
 
 -- 로그인
 SELECT user_id, passward, nickname FROM users WHERE username = ?
 
+-- 로그인 상태 확인
+-- 0 : 로그아웃 상태
+-- 1 : 로그인 상태
+SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?
+
 --로그인 시간 최적화
 UPDATE users SET logined_at = NOW() WHERE user_id = ?
 
--- 로그인 후 리프레쉬토큰 최신화
+-- 로그인 후 리프레쉬토큰 추가
 INSERT INTO refresh_tokens (user_id, refresh_token) VALUES
 (?, ?)
 
@@ -20,7 +31,7 @@ INSERT INTO refresh_tokens (user_id, refresh_token) VALUES
 UPDATE users SET logouted_at = NOW() WHERE user_id = ?
 
 -- 로그아웃 후 리프레쉬토큰 삭제
-DELETE FROM refresh_tokens WHERE token_id = ?
+DELETE FROM refresh_tokens WHERE user_id = ?
 
 -- 리프레쉬 토큰 호출
 SELECT user_id FROM refresh_tokens WHERE refresh_token = ?
