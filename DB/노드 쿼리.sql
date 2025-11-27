@@ -47,6 +47,11 @@ FROM guild_members gm
 JOIN guilds g ON g.guild_id = gm.guild_id 
 WHERE gm.user_id = ?
 
+-- 가입된 길드 존재여부 조회
+-- 0 : 중복 없음
+-- 1 : 중복 존재
+SELECT COUNT(*) AS count FROM guild_members WHERE gm.user_id = ?
+
 -- 길드 생성
 INSERT INTO guilds (guild_name) VALUES (?)
 

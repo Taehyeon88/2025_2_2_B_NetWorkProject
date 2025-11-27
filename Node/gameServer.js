@@ -9,26 +9,6 @@ const pool = mysql.createPool({
     password : '112233',
     database : 'gametest'
 });
-    //쿼리 사용 예시
-    // try
-    // {
-    //     const [players] = await pool.query(
-    //         'SELECT * FROM players WHERE username = ? AND password_hash = ?',
-    //         [username, password_hash]
-    //     );
-
-    //     if(players.length > 0)
-    //     {
-    //         await pool.query(
-    //             'UPDATE players SET last_login = CURRENT_TIMESTAMP WHERE player_id = ?',
-    //             [players[0].player_id]
-    //         );
-    //     }
-    // }
-    // catch (error)
-    // {
-    //     res.status(500).json({success: false, message : error.message});
-    // }
 
 class GameServer {
 
@@ -61,20 +41,35 @@ class GameServer {
 
             //socket.send(JSON.stringify(welcomData));
 
-            socket.on('message', (text) =>
+            socket.on('message', async (text) =>
             {
                 try
                 {
                     const data = JSON.parse(text);   //data = {text(메세지 혹은 방이름), chatType, connectType, playerNickName, targetNickName(귓말용)}
+                    
                     switch(data.chatType)
                     {
                         case "GUILD":
                             switch(data.connectType)
                             {
-                                case "create": this.handleCreateRoom(socket, data); break;
-                                case "join": this.handleJoinRoom(socket, data); break;
-                                case "chat": this.handleChatting(socket, data); break;
-                                case "Exit": this.handleExitChatRoom(socket, data); break;
+                                case "create": 
+                                    const [temp1] = await pool.query(
+                                    'SELECT COUNT(*) AS count FROM guild_members WHERE user_id = ?', [user_id]   //user_id
+                                    );
+                                    if(temp1.count == 1)
+                                    {
+                                        return res.status(400).json({error : '이미 가입한 길드가 존재합니다.'});
+                                    }                                      
+                                break;
+                                case "join": 
+                                this.handleJoinRoom(socket, data); 
+                                break;
+                                case "chat": 
+                                this.handleChatting(socket, data); 
+                                break;
+                                case "Exit": 
+                                this.handleExitChatRoom(socket, data); 
+                                break;
                             }
                             break;
 
@@ -92,7 +87,7 @@ class GameServer {
                             //모든 클라이언트를 받아서 메세지 전달(DB)
 
                         case "LOCAL":
-                            //현재 로컬 채팅 방에 메세지 업데이트 
+                            //현재 로컬 채팅 방에 메세지 업데이트
                             //모든 클라이언트를 받아서 메세지 전달
 
                         case "WHISPER":
@@ -103,7 +98,9 @@ class GameServer {
                 catch (error)
                 {
                     console.error('메세지 파싱 에러 : ', error);
+                    res.status(500).json({success: false, message : error.message});
                 }
+                
             });
 
             socket.on('close', ()=> {
@@ -167,7 +164,7 @@ class GameServer {
 
     //방 생성 처리 로직
     handleCreateRoom(socket, data)
-    {
+    {  
         //예외처리:
         //1. 플레이어가 가입한 길드채팅이 있는지 체크
         //2. 해당 이름의 길드채팅이 존재하는지 체크
