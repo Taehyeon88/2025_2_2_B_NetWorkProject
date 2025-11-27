@@ -14,6 +14,14 @@ INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message
 INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_region_id) VALUES
 (?, ?, ?, ?, ?)
 
+-- 메세지 정보 저장 - 파티
+INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_party_id) VALUES
+(?, ?, ?, ?, ?)
+
+-- 메세지 정보 저장 - 공지
+INSERT INTO message_permanent (message_type, message_text) VALUES
+(?, ?)
+
 -- 메세지 호출 - 길드
 SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_guild_id = ?
 
@@ -25,3 +33,9 @@ SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE ta
 
 -- 메세지 호출 - 지역
 SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_region_id = ?
+
+-- 메세지 호출 - 파티
+SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_party_id = ?
+
+-- 메세지 호출 - 공지
+SELECT message_text FROM message_permanent WHERE message_type = GLOBAL

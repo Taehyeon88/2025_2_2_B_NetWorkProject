@@ -128,7 +128,7 @@ CREATE TABLE region_member(
 	FOREIGN KEY (region_id) REFERENCES regions(region_id)
 )
 
--- 메세지 영구 저장 테이블 (임시 보류)
+-- 메세지 영구 저장 테이블
 CREATE TABLE message_permanent(
 	-- 메세지 정보
     message_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '메세지 고유 번호',
@@ -137,7 +137,8 @@ CREATE TABLE message_permanent(
     'GUILD',
     'WHISPER',
     'REGION',
-    'PARTY'
+    'PARTY',
+    'GLOBAL'
     ) NOT NULL COMMENT'메세지 타입',
     
     -- 보낸 유저 정보 및 메세지 내용
@@ -195,28 +196,5 @@ CREATE TABLE message_permanent(
 -- 테이블 삭제
 DROP TABLE message_permanent
 
--- 메세지 임시 저장 테이블 (임시 보류)
-CREATE TABLE message_temporary(
-	-- 메세지 정보 
-    message_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '메세지 고유 번호',
-    message_type ENUM(
-    'GLOBAL',
-    'PARTY'
-    ) NOT NULL COMMENT'메세지 타입',
-    
-    -- 보낸 유저 정보 및 메세지 내용
-    sender_id INT UNSIGNED NULL COMMENT'보낸 유저 (users.user_id)',
-    sender_nickname VARCHAR(100) NOT NULL COMMENT'보낸 유저 이름',
-    message_text TEXT NOT NULL COMMENT'메세지 내용',
-    
-    -- 보낸 출처
-    target_region VARCHAR(100) NULL COMMENT'해당 지역',
-    target_party_id INT UNSIGNED NULL COMMENT'대상 파티(parties.party_id)',
-    -- 시간 기록
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시간',
-    INDEX idx_message_type (message_type),
-	 INDEX idx_type_created (message_type, created_at),
-    INDEX idx_created_at (created_at)
-)
 -- 테이블 삭제
 DROP TABLE message_temporary

@@ -2,10 +2,13 @@
 INSERT INTO parties () VALUES ()
 
 -- 파티 가입
-INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)
+INSERT INTO party_members (user_id, guild_id) VALUES (?, ?)
 
 -- 파티 탈퇴
-DELETE FROM guild_members where user_id = ?
+DELETE FROM party_members where user_id = ?
+
+--파티 삭제
+DELETE FROM parties WHERE party_id = ?
 
 -- 파티 맴버 조회
 SELECT u.nickname
