@@ -7,6 +7,9 @@ INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)
 -- 길드 탈퇴
 DELETE FROM guild_members where user_id = ? AND guild_id = ?
 
+-- 길드 삭제
+DELETE FROM guilds WHERE guild_id = ?
+
 -- 길드 맴버 조회
 SELECT g.guild_name, u.nickname, gm.joined_at 
 FROM guilds g 

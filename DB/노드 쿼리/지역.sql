@@ -1,5 +1,2 @@
--- 지역 가입
-INSERT INTO region_members (user_id, region_id) VALUES
-(?, ?)
-
--- 
+-- 지역 이동시 정보 갱신
+UPDATE region_members SET region_id = ? WHERE user_id = ?

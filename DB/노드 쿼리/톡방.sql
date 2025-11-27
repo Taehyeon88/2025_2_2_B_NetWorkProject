@@ -10,6 +10,10 @@ INSERT INTO chat_room_members (user_id, chat_room_id) VALUES
 DELETE FROM chat_room_members 
 where chat_room_id = ? AND user_id = ?
 
+-- 톡방 제거
+DELETE FROM chat_rooms
+WHERE chat_room_id = ?
+
 -- 톡방 맴버 조회
 SELECT c.chat_room_name, u.nickname, cr.joined_at 
 FROM chat_rooms c 

@@ -34,7 +34,3 @@ SELECT g.guild_id, g.guild_name
 FROM guild_members gm
 JOIN guilds g ON g.guild_id = gm.guild_id 
 WHERE gm.user_id = ?
-
--- 로그인 이후 또는 지역 가입
-INSERT INTO region_members (user_id, region_id) VALUES
-(?, ?)

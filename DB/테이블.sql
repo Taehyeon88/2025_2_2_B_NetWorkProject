@@ -120,7 +120,7 @@ CREATE TABLE regions(
 	region_name VARCHAR (100) NOT NULL COMMENT '지역 이름'
 )
 
-CREATE TABLE region_member(
+CREATE TABLE region_members(
 	user_id INT UNSIGNED NOT NULL COMMENT '유저 고유번호(user.user_id)',
 	region_id INT UNSIGNED NOT NULL COMMENT '지역 고유번호',
 	
