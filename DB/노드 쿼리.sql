@@ -47,11 +47,6 @@ FROM guild_members gm
 JOIN guilds g ON g.guild_id = gm.guild_id 
 WHERE gm.user_id = ?
 
--- 가입된 길드 존재여부 조회
--- 0 : 중복 없음
--- 1 : 중복 존재
-SELECT COUNT(*) AS count FROM guild_members WHERE gm.user_id = ?
-
 -- 길드 생성
 INSERT INTO guilds (guild_name) VALUES (?)
 
@@ -112,3 +107,29 @@ FROM parties p
 JOIN party_members pm ON p.party_id = pm.party_id 
 JOIN users u ON u.user_id = pm.user_id 
 WHERE p.party_id = ?
+
+-- 메세지 정보 저장(원본)
+-- 쓰지 마세요
+-- INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_room_id, target_guild_id, target_user_id) VALUES
+-- (?, ?, ?, ?, ?, ?, ?)
+
+-- 톡방 메세지 정보 저장
+INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_room_id) VALUES
+(?, ?, ?, ?, ?)
+
+-- 길드 메세지 정보 저장
+INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_guild_id) VALUES
+(?, ?, ?, ?, ?)
+
+-- 귓속말 메세지 정보 저장
+INSERT INTO message_permanent (sender_id, sender_nickname, message_type, message_text, target_user_id) VALUES
+(?, ?, ?, ?, ?)
+
+-- 메세지 호출 - 길드
+SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_guild_id = ?
+
+-- 메세지 호출 - 톡방
+SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_room_id = ?
+
+-- 메세지 호출 - 귓속말
+SELECT sender_nickname, message_text, created_at FROM message_permanent WHERE target_user_id = ?
