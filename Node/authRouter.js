@@ -48,7 +48,7 @@ router.post('/register', async(req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.query(                                             //회원 정보 업데이트
-            'INSERT INTO users (username, passward, nickname) VALUES (?, ?, ?)',
+            'INSERT INTO users (username, passward, nickname, socket) VALUES (?, ?, ?, 0)',
             [username, hashedPassword, nickname]
         );
     }

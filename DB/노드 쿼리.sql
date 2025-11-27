@@ -63,6 +63,12 @@ JOIN guild_members gm ON g.guild_id = gm.guild_id
 JOIN users u ON u.user_id = gm.user_id 
 WHERE g.guild_id = ?
 
+-- SELECT gm.msocket FROM guild_members gm WHERE gm.길드 이름
+
+SELECT COUNT(*) AS count FROM guild_members WHERE user_id = '1'
+
+SELECT COUNT(*) AS count FROM guilds WHERE guild_name = '123'
+
 -- 길드 채팅 메세지 호출
 SELECT sender_nickname, message_text, created_at 
 FROM message_permanent 
