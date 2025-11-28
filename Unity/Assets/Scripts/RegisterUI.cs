@@ -32,4 +32,11 @@ public class RegisterUI : MonoBehaviour
         StartCoroutine(authManager.Login(username, password));
         txtLog.text = "로그인 요청 중...";
     }
+
+    public void OnLogOutButton()
+    {
+
+        StartCoroutine(authManager.LogOut());
+        txtLog.text = "로그아웃 됐습니다";
+    }
 }

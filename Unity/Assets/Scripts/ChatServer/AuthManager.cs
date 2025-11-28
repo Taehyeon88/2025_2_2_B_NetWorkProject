@@ -121,10 +121,10 @@ public class AuthManager : MonoBehaviour
         }
     }
 
-    public IEnumerator LogOut(string user_id)
+    public IEnumerator LogOut()
     {
-        var user = new {user_id};
-        var jsonData = JsonConvert.SerializeObject(user);
+        var body = new { user_id = userId };
+        var jsonData = JsonConvert.SerializeObject(body);
 
         using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/api/logout", "POST"))
         {
@@ -135,9 +135,26 @@ public class AuthManager : MonoBehaviour
 
             yield return www.SendWebRequest();
 
+            Debug.Log($"[Logout] responseCode: {www.responseCode}, body: {www.downloadHandler.text}");
 
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                PlayerPrefs.DeleteKey("AccessToken");
+                PlayerPrefs.DeleteKey("RefreshToken");
+                PlayerPrefs.DeleteKey("TokenExpiry");
+
+                accessToken = null;
+                refreshToken = null;
+                userId = 0;
+
+                Debug.Log("로그아웃 완료");
+            }
+            else
+            {
+                Debug.LogError($"Logout Error: {www.error}");
+            }
         }
-    }   
+    }
     [System.Serializable]
     public class LoginResponse
     {
