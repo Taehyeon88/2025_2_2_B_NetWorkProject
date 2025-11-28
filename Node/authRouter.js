@@ -162,16 +162,16 @@ router.get('/token', async(req, res) => {
     if(!accessToken) return res.sendStatus(401);
     if(!refreshToken) return res.sendStatus(401);
 
-    jwt.verify(accessToken, JWT_SECRET, (err, user) =>{
+    jwt.verify(accessToken, JWT_SECRET, async (err, user) =>{
         if(err)
         {
             if(err.name !== 'TokenExpiredError') return res.sendStatus(403);
 
-            jwt.verify(refreshToken, REFRESH_TOKEN_SECRET, (err, user) => {
+            jwt.verify(refreshToken, REFRESH_TOKEN_SECRET, async (err, user) => {
                 if(err) return res.sendStatus(403);
                 try
                 {
-                    const [user_id] = await.pool.query(
+                    const [user_id] = await pool.query(
                         'SELECT user_id FROM refresh_tokens WHERE refresh_token = ?',
                         [refreshToken]
                     );
