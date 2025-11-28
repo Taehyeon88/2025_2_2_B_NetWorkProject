@@ -5,7 +5,6 @@ CREATE TABLE users(
     username VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '로그인 ID',
     passward VARCHAR(255) NOT NULL COMMENT '해싱된 비밀번호',
     nickname VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '유저 닉네임',
-    socket VARCHAR(255) NOT NULL COMMENT '서버 소켓',
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
     logined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그인일',
@@ -183,6 +182,9 @@ CREATE TABLE message_permanent(
 	--	OR 
 	--	(message_type = 'PARTY' AND sender_id IS NOT NULL AND sender_nickname IS NOT NULL 
 	--	AND target_room_id is NULL AND target_guild_id IS NULL AND target_user_id IS NULL AND target_region_id IS NULL AND target_party_id IS NOT NULL)
+	--	OR
+	--	(message_type = 'GLOBAL' AND sender_id IS NOT NULL AND sender_nickname IS NOT NULL 
+	--	AND target_room_id is NULL AND target_guild_id IS NULL AND target_user_id IS NULL AND target_region_id IS NULL AND target_party_id IS NULL)
 	-- ),
 	 
 	 -- 인덱스 추가
