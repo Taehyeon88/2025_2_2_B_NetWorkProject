@@ -9,23 +9,21 @@ using Newtonsoft.Json;
 
 public class AuthManager : MonoBehaviour
 {
-    //서버 URL 및 PlayerPrefs 키 상수 정의
     private const string SERVER_URL = "http://localhost:4000";
     private const string ACCESS_TOKEN_PREFS_KEY = "AccessToken";
     private const string REFRESH_TOKEN_PREFS_KEY = "RefreshToken";
     private const string TOKEN_EXPIRY_PREFS_KEY = "TokenExpiry";
 
-    //토큰 및 만료 시간 저장 변수
     private string accessToken;
     private string refreshToken;
     private DateTime tokenExpiryTime;
-
     private int userId;
+
     void Start()
     {
         LoadTokenFromPrefs();
     }
-    //PlayerPrefs 에서 토큰 정보 로드
+
     private void LoadTokenFromPrefs()
     {
         accessToken = PlayerPrefs.GetString(ACCESS_TOKEN_PREFS_KEY, "");
@@ -34,7 +32,6 @@ public class AuthManager : MonoBehaviour
         tokenExpiryTime = new DateTime(expiryTicks);
     }
 
-    //PlayerPrefs에 토큰 정보 저장
     private void SaveTokenToPrefs(string accessToken, string refreshToken, DateTime expiryTime)
     {
         PlayerPrefs.SetString(ACCESS_TOKEN_PREFS_KEY, accessToken);
@@ -46,13 +43,13 @@ public class AuthManager : MonoBehaviour
         this.tokenExpiryTime = expiryTime;
     }
 
-    //사용자 등록 코루틴
+    // 회원가입
     public IEnumerator Register(string username, string password, string nickname)
     {
         var user = new { username, password, nickname };
         var jsonData = JsonConvert.SerializeObject(user);
 
-        using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/register", "POST"))
+        using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/api/register", "POST"))
         {
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
             www.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -60,15 +57,29 @@ public class AuthManager : MonoBehaviour
             www.SetRequestHeader("Content-Type", "application/json");
 
             yield return www.SendWebRequest();
+
+            Debug.Log($"[Register] responseCode: {www.responseCode}, result: {www.result}");
+            if (www.downloadHandler != null)
+                Debug.Log($"[Register] body: {www.downloadHandler.text}");
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Register Error : {www.error}");
+            }
+            else
+            {
+                Debug.Log("Registration successful");
+            }
         }
     }
 
+    // 로그인
     public IEnumerator Login(string username, string password)
     {
         var user = new { username, password };
         var jsonData = JsonConvert.SerializeObject(user);
 
-        using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/login", "POST"))
+        using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/api/login", "POST"))
         {
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
             www.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -77,21 +88,56 @@ public class AuthManager : MonoBehaviour
 
             yield return www.SendWebRequest();
 
+            Debug.Log($"[Login] responseCode: {www.responseCode}, result: {www.result}");
+            if (www.downloadHandler != null)
+                Debug.Log($"[Login] body: {www.downloadHandler.text}");
+
             if (www.result != UnityWebRequest.Result.Success)
             {
                 Debug.LogError($"Login Error : {www.error}");
+                Debug.LogError($"Login Response Body: {www.downloadHandler?.text}");
             }
             else
             {
-                var response = JsonConvert.DeserializeObject<LoginResponse>(www.downloadHandler.text);
-                userId = response.user_id;  
-                SaveTokenToPrefs(response.accessToken, response.refreshToken, DateTime.UtcNow.AddMinutes(15));
-                Debug.Log("Login Successful");
+                try
+                {
+                    var response = JsonConvert.DeserializeObject<LoginResponse>(www.downloadHandler.text);
+                    if (response == null)
+                    {
+                        Debug.LogError("[Login] Failed to parse response JSON.");
+                        yield break;
+                    }
+
+                    userId = response.user_id;
+                    SaveTokenToPrefs(response.accessToken, response.refreshToken, DateTime.UtcNow.AddMinutes(15));
+                    Debug.Log("Login Successful - user_id: " + userId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[Login] Exception parsing response: " + ex.Message);
+                    Debug.LogError("[Login] Response body: " + www.downloadHandler.text);
+                }
             }
         }
     }
 
-    //로그인 응답 데이터 구조
+    public IEnumerator LogOut(string user_id)
+    {
+        var user = new {user_id};
+        var jsonData = JsonConvert.SerializeObject(user);
+
+        using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/api/logout", "POST"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
+
+        }
+    }   
     [System.Serializable]
     public class LoginResponse
     {
@@ -99,7 +145,7 @@ public class AuthManager : MonoBehaviour
         public string accessToken;
         public string refreshToken;
     }
-    //토큰 갱신 응답 데이터 구조
+
     [System.Serializable]
     public class RefreshTokenResponse
     {
