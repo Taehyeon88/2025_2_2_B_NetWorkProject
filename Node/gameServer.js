@@ -285,7 +285,7 @@ class GameServer {
                 this.clients.delete(socket);
                 this.players.delete(playerId);
 
-                const m = {type: "login", text : `${playerNickName}님이 서버를 나가셨습니다!`};
+                const m = {type: "close", text : `${playerNickName}님이 서버를 나가셨습니다!`};
                 this.broadcast(m, this.clients, playerNickName);
             });
 
