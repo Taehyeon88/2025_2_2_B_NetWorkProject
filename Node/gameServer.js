@@ -140,7 +140,7 @@ class GameServer {
                                     this.broadcast(data, await findAllsockets(user_ids2, this.players, playerNickName));
 
                                 break;
-                                case "Exit": 
+                                case "exit": 
                                     if(await checkGuildExist(playerId) == 0)  //소속 길드 존재 여부 체크
                                     {
                                         socket.send(JSON.stringify({error : '가입된 길드가 없습니다.'}));
