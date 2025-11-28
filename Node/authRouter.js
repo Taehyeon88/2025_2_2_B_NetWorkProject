@@ -93,7 +93,7 @@ router.post('/login', async(req, res) => {
 
         const accessToken = generateAccessToken(username);
         //console.log(accessToken);
-        const refreschToken = jwt.sign({username}, REFRESH_TOKEN_SECRET);
+        const refreshToken = jwt.sign({username}, REFRESH_TOKEN_SECRET);
 
         await pool.query(
             'UPDATE users SET logined_at = NOW() WHERE user_id = ?',
@@ -102,10 +102,10 @@ router.post('/login', async(req, res) => {
         
         await pool.query(
             'INSERT INTO refresh_tokens (user_id, refresh_token) VALUES (?, ?)',
-            [user_id, refreschToken]
+            [user_id, refreshToken]
         ); 
 
-        res.json({user_id, accessToken, refreschToken});
+        res.json({user_id, accessToken, refreshToken});
     }
     catch(error)
     {
@@ -157,23 +157,23 @@ function authenticateToken(req, res, next) {
 }
 
 router.get('/token', async(req, res) => {
-    const{accessToken, refreschToken} = req.body;
+    const{accessToken, refreshToken} = req.body;
 
     if(!accessToken) return res.sendStatus(401);
-    if(!refreschToken) return res.sendStatus(401);
+    if(!refreshToken) return res.sendStatus(401);
 
     jwt.verify(accessToken, JWT_SECRET, (err, user) =>{
         if(err)
         {
             if(err.name !== 'TokenExpiredError') return res.sendStatus(403);
 
-            jwt.verify(refreschToken, REFRESH_TOKEN_SECRET, (err, user) => {
+            jwt.verify(refreshToken, REFRESH_TOKEN_SECRET, (err, user) => {
                 if(err) return res.sendStatus(403);
                 try
                 {
                     const [user_id] = await.pool.query(
                         'SELECT user_id FROM refresh_tokens WHERE refresh_token = ?',
-                        [refreschToken]
+                        [refreshToken]
                     );
                 }
                 catch(error)
