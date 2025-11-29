@@ -29,10 +29,33 @@ public class RegisterUI : MonoBehaviour
         string username = inputUsername.text;
         string password = inputPassword.text;
 
-        StartCoroutine(authManager.Login(username, password));
+        StartCoroutine(LoginAndConnect(username, password));
         txtLog.text = "로그인 요청 중...";
     }
+    private IEnumerator LoginAndConnect(string username, string password)
+    {
+        // 로그인 코루틴 실행
+        yield return authManager.Login(username, password);
 
+        // 로그인 성공 후
+        if (!string.IsNullOrEmpty(authManager.accessToken)) 
+        {
+            txtLog.text = "로그인 성공! 서버 연결 중...";
+
+            NetworkManager nm = FindObjectOfType<NetworkManager>();
+            if (nm != null)
+            {
+                nm.SetMyNickname(inputNickname.text);
+                nm.myPlayerId = inputUsername.text; 
+
+                nm.ConnectToServer();
+            }
+        }
+        else
+        {
+            txtLog.text = "로그인 실패!";
+        }
+    }
     public void OnLogOutButton()
     {
 

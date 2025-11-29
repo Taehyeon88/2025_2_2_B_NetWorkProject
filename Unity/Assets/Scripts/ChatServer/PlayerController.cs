@@ -5,7 +5,8 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-
+    public string myPlayerId;  // ★ NetworkManager에서 채워줌
+    public bool isLocalPlayer; // ★ 내가 조종하는 플레이어인지 구분
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float rotateSpeed = 100f;

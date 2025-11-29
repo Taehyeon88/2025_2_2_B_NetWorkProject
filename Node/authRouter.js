@@ -91,7 +91,7 @@ router.post('/login', async(req, res) => {
             [user_id]
         );
 
-        const accessToken = generateAccessToken(username);
+        const accessToken = generateAccessToken(user[0].user_id, username);
         //console.log(accessToken);
         const refreshToken = jwt.sign({username}, REFRESH_TOKEN_SECRET);
 
@@ -138,9 +138,8 @@ router.post('/logout', async(req, res) => {
 });
 
 //액세스 토큰 생성 함수
-function generateAccessToken(username)
-{
-    return jwt.sign({username}, JWT_SECRET, {expiresIn: '15m'});
+function generateAccessToken(user_id, username) {
+    return jwt.sign({user_id, username}, JWT_SECRET, {expiresIn: '15m'});
 }
 
 //토큰 인증 미들웨어

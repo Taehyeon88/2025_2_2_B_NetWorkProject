@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using NativeWebSocket;
@@ -10,22 +10,23 @@ using Newtonsoft.Json.Converters;
 [Serializable]
 public class NetworkMessage
 {
-    public string text;            // ¸Ş½ÃÁö
+    public string userId;           // ì„œë²„ ê³ ìœ  ID
+    public string playerNickName;
+    public string text;            // ë©”ì‹œì§€
     public string chatType;        // GLOBAL, PARTY, GUILD, LOCAL, WHISPER
     public string connectType;     // chat, create, join, Exit
-    public string playerNickName;
-    public string targetNickName;  // ±Ó¸» ´ë»ó\
+    public string targetNickName;  // ê·“ë§ ëŒ€ìƒ\
     public Vecter3Data position; 
     public Vecter3Data rotation;
 }
 
 public enum ChatChannel
 {
-    General,    // ÀÏ¹İ
-    Party,      // ÆÄÆ¼
-    Guild,      // ±æµå
-    Local,      // Áö¿ª
-    Whisper     // ±Ó¼Ó¸»
+    General,    // ì¼ë°˜
+    Party,      // íŒŒí‹°
+    Guild,      // ê¸¸ë“œ
+    Local,      // ì§€ì—­
+    Whisper     // ê·“ì†ë§
 }
 
 
@@ -53,28 +54,31 @@ public class Vecter3Data
 public class NetworkManager : MonoBehaviour
 {
     private WebSocket webSocket;
-    [SerializeField] private string serverUrl = "ws://localhost:3000";
+    [SerializeField] private string serverUrl = "ws://localhost:4000";
 
     [Header("UI Elements")]
     [SerializeField] private InputField messageInput;
-    [SerializeField] private Button connectButton;
     [SerializeField] private Text chatLog;
     [SerializeField] private Text statusText;
     [Header("PlayerSetting")]
-    [SerializeField] private Transform localPlayer;     //³» ÇÃ·¹ÀÌ¾î
-    [SerializeField] private GameObject remotePlayerPrefabs;    //´Ù¸¥ ÇÃ·¹ÀÌ¾î Prefabs
-    [SerializeField] private float positionSendRate = 0.1f;    //À§Ä¡ Àü¼Û °£°İ
-
+    [SerializeField] private GameObject playerPrefab;     //ë‚´ í”Œë ˆì´ì–´
+    private GameObject localPlayer;    //ë‹¤ë¥¸ í”Œë ˆì´ì–´ Prefabs
+    [SerializeField] private float positionSendRate = 0.1f;    //ìœ„ì¹˜ ì „ì†¡ ê°„ê²©
+    public GameObject remotePlayerPrefab;
     [Header("Channel Buttons")]
-    [SerializeField] private Button[] channelButtons;   // General, Party, Guild, Local, Whisper ¼ø¼­´ë·Î ³Ö±â
+    [SerializeField] private Button[] channelButtons;   // General, Party, Guild, Local, Whisper ìˆœì„œëŒ€ë¡œ ë„£ê¸°
     [SerializeField] private Color normalColor = Color.gray;
     [SerializeField] private Color selectedColor = Color.white;
 
+    [HideInInspector]
     public string type;
-    private string myPlayerId;
-   
+    [HideInInspector]
+    public string myPlayerId;
+    private string myNickname;
+
     private Dictionary<string, GameObject> remotePlayers = new Dictionary<string, GameObject>();
     private float lastPositionSendTime;
+    private Button connectButton;
 
     private ChatChannel currentChannel = ChatChannel.General;
     // Start is called before the first frame update
@@ -82,7 +86,7 @@ public class NetworkManager : MonoBehaviour
     {
         connectButton.onClick.AddListener(ConnectToServer);
 
-        // ¿£ÅÍ·Î ¸Ş½ÃÁö Àü¼Û
+        // ì—”í„°ë¡œ ë©”ì‹œì§€ ì „ì†¡
         if (messageInput != null)
         {
             messageInput.onEndEdit.RemoveAllListeners();
@@ -93,9 +97,35 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
+    public void OnWebSocketConnected()
+    {
+        StartCoroutine(WaitAndSpawnLocalPlayer());
+        // ì ‘ì† ë©”ì‹œì§€ ì„œë²„ë¡œ ì „ì†¡ ë“±
+    }
 
+    IEnumerator WaitAndSpawnLocalPlayer()
+    {
+        while (string.IsNullOrEmpty(myNickname))
+            yield return null;
 
+        SpawnLocalPlayer();
+    }
+    public void SetMyNickname(string nickname)
+    {
+        myNickname = nickname;
+    }
+    private void SpawnLocalPlayer()
+    {
+        if (localPlayer != null) return;
+        if (playerPrefab == null) Debug.LogError("PlayerPrefab is NULL!");
+        Debug.Log("Spawning player, nickname=" + myNickname);
+        Vector3 spawnPos = new Vector3(0, 1, 0);
+        localPlayer = Instantiate(playerPrefab, spawnPos, Quaternion.identity);
 
+        PlayerController pc = localPlayer.GetComponent<PlayerController>();
+        pc.myPlayerId = myNickname;
+        pc.isLocalPlayer = true;
+    }
     // Update is called once per frame
     void Update()
     {
@@ -119,36 +149,38 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private async void ConnectToServer()
+    public async void ConnectToServer()
     {
         if(webSocket != null && webSocket.State == WebSocketState.Open)
         {
-            AddToChatLog("[½Ã½ºÅÛ] ÀÌ¹Ì ¿¬°áµÇ¾î ÀÖ½À´Ï´Ù. ");
+            AddToChatLog("[ì‹œìŠ¤í…œ] ì´ë¯¸ ì—°ê²°ë˜ì–´ ìˆìŠµë‹ˆë‹¤. ");
             return;
         }
 
-        UpdateStatusText("¿¬°á Áß...", Color.yellow);
+        UpdateStatusText("ì—°ê²° ì¤‘...", Color.yellow);
 
         webSocket = new WebSocket(serverUrl);
 
         webSocket.OnOpen += () =>
         {
-            UpdateStatusText("¿¬°áµÊ", Color.green);
-            AddToChatLog("[½Ã½ºÅÛ] ¼­¹ö¿¡ ¿¬°á µÇ¾ú½À´Ï´Ù. ");
+            UpdateStatusText("ì—°ê²°ë¨", Color.green);
+            AddToChatLog("[ì‹œìŠ¤í…œ] ì„œë²„ì— ì—°ê²°ë˜ì—ˆìŠµë‹ˆë‹¤.");
+
+            OnWebSocketConnected();  
         };
 
         webSocket.OnError += (e) =>
         {
-            UpdateStatusText("¿¡·¯ ¹ß»ı", Color.green);
-            AddToChatLog("[½Ã½ºÅÛ] ¿¡·¯ : {e} ");
+            UpdateStatusText("ì—ëŸ¬ ë°œìƒ", Color.green);
+            AddToChatLog("[ì‹œìŠ¤í…œ] ì—ëŸ¬ : {e} ");
         };
 
         webSocket.OnClose += (e) =>
         {
-            UpdateStatusText("¿¬°á ²÷±è", Color.red);
-            AddToChatLog("[½Ã½ºÅÛ] ¼­¹ö¿ÍÀÇ ¿¬°áÀÌ ²÷¾îÁ³½À´Ï´Ù. ");
+            UpdateStatusText("ì—°ê²° ëŠê¹€", Color.red);
+            AddToChatLog("[ì‹œìŠ¤í…œ] ì„œë²„ì™€ì˜ ì—°ê²°ì´ ëŠì–´ì¡ŒìŠµë‹ˆë‹¤. ");
 
-            //¿¬°á ²÷±è ½Ã ¸ğµç ¿ø°İ ÇÃ·¹ÀÌ¾î Á¦°Å
+            //ì—°ê²° ëŠê¹€ ì‹œ ëª¨ë“  ì›ê²© í”Œë ˆì´ì–´ ì œê±°
             foreach(var player in remotePlayers.Values)
             {
                 if (player != null) Destroy(player);
@@ -179,27 +211,27 @@ public class NetworkManager : MonoBehaviour
 
             if (data.connectType == "create")
             {
-                AddToChatLog($"[½Ã½ºÅÛ] [{data.chatType}] ¹æÀÌ »ı¼ºµÇ¾ú½À´Ï´Ù.");
+                AddToChatLog($"[ì‹œìŠ¤í…œ] [{data.chatType}] ë°©ì´ ìƒì„±ë˜ì—ˆìŠµë‹ˆë‹¤.");
                 return;
             }
 
             if (data.connectType == "join")
             {
-                AddToChatLog($"[½Ã½ºÅÛ] [{data.playerNickName}] °¡ [{data.chatType}] ¹æ¿¡ Âü¿©Çß½À´Ï´Ù.");
+                AddToChatLog($"[ì‹œìŠ¤í…œ] [{data.playerNickName}] ê°€ [{data.chatType}] ë°©ì— ì°¸ì—¬í–ˆìŠµë‹ˆë‹¤.");
                 return;
             }
 
             if (data.connectType == "Exit")
             {
-                AddToChatLog($"[½Ã½ºÅÛ] [{data.playerNickName}] °¡ [{data.chatType}] ¹æÀ» ¶°³µ½À´Ï´Ù.");
+                AddToChatLog($"[ì‹œìŠ¤í…œ] [{data.playerNickName}] ê°€ [{data.chatType}] ë°©ì„ ë– ë‚¬ìŠµë‹ˆë‹¤.");
                 return;
             }
 
             if (data.chatType == "positionUpdate")
             {
-                if (data.playerNickName != myPlayerId) 
+                if (data.userId != myPlayerId)
                 {
-                    UpdateRemotePlayer(data.playerNickName, data.position, data.rotation);
+                    UpdateRemotePlayer(data.userId, data.position, data.rotation);
                 }
                 return;
             }
@@ -208,7 +240,7 @@ public class NetworkManager : MonoBehaviour
 
         catch (Exception e)
         {
-            Debug.LogError($"¸Ş¼¼Áö Ã³¸® Áß ¿¡·¯: {e.Message}");
+            Debug.LogError($"ë©”ì„¸ì§€ ì²˜ë¦¬ ì¤‘ ì—ëŸ¬: {e.Message}");
         }
     }
 
@@ -226,20 +258,44 @@ public class NetworkManager : MonoBehaviour
 
         if (webSocket == null || webSocket.State != WebSocketState.Open)
         {
-            AddToChatLog("[½Ã½ºÅÛ] ¼­¹ö¿¡ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù.");
+            AddToChatLog("[ì‹œìŠ¤í…œ] ì„œë²„ì— ì—°ê²°ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.");
             return;
         }
 
-        NetworkMessage message = new NetworkMessage
-        {
-            chatType = "Chat",
-            text = messageInput.text
-        };
+        NetworkMessage msg = new NetworkMessage();
+        msg.text = messageInput.text;
+        msg.playerNickName = myPlayerId; // ë¡œê·¸ì¸ ì‹œ ë°›ì€ í”Œë ˆì´ì–´ ë‹‰ë„¤ì„ or userId
+        msg.connectType = "chat";
 
-        await webSocket.SendText(JsonConvert.SerializeObject(message));
+        switch (currentChannel)
+        {
+            case ChatChannel.General: msg.chatType = "GLOBAL"; break;
+            case ChatChannel.Party: msg.chatType = "PARTY"; break;
+            case ChatChannel.Guild: msg.chatType = "GUILD"; break;
+            case ChatChannel.Local: msg.chatType = "LOCAL"; break;
+            case ChatChannel.Whisper:
+                msg.chatType = "WHISPER";
+                msg.targetNickName = ExtractTargetNick(messageInput.text);
+                msg.text = ExtractWhisperMessage(messageInput.text);
+                break;
+        }
+
+        await webSocket.SendText(JsonConvert.SerializeObject(msg));
         messageInput.text = "";
-        messageInput.ActivateInputField();            //ÀÔ·ÂÃ¢ ´Ù½Ã È°¼ºÈ­
     }
+
+    private string ExtractTargetNick(string rawMessage)
+    {
+        string[] split = rawMessage.Split(' ');
+        return split.Length > 1 ? split[1] : null;
+    }
+
+    private string ExtractWhisperMessage(string rawMessage)
+    {
+        string[] split = rawMessage.Split(' ');
+        return split.Length > 2 ? string.Join(" ", split, 2, split.Length - 2) : "";
+    }
+
     private async void SendPositionUpdate()
     {
         if (localPlayer == null) return;
@@ -247,11 +303,10 @@ public class NetworkManager : MonoBehaviour
         NetworkMessage message = new NetworkMessage
         {
             chatType = "positionUpdate",
-            position = new Vecter3Data(localPlayer.position),
-            rotation = new Vecter3Data(localPlayer.eulerAngles)
-
+            playerNickName = myPlayerId,
+            position = new Vecter3Data(localPlayer.transform.position),
+            rotation = new Vecter3Data(localPlayer.transform.eulerAngles)
         };
-
         await webSocket.SendText(JsonConvert.SerializeObject(message));
 
     }
@@ -277,7 +332,7 @@ public class NetworkManager : MonoBehaviour
             case "WHISPER": color = new Color(0.75f, 0.4f, 1f); break;
         }
 
-        string sender = data.playerNickName == myPlayerId ? "³ª" : data.playerNickName;
+        string sender = data.playerNickName == myPlayerId ? "ë‚˜" : data.playerNickName;
         AddToChatLogColored($"[{data.chatType}] {sender}: {data.text}", color);
     }
     private void UpdateStatusText (string status, Color color)
@@ -296,25 +351,50 @@ public class NetworkManager : MonoBehaviour
             await webSocket.Close();
         }
     }
+    public void SpawnRemotePlayer(string playerId)
+    {
+        if (remotePlayers.ContainsKey(playerId)) return;
+
+        Vector3 spawnPos = new Vector3(0, 1, 0);
+        GameObject remote = Instantiate(remotePlayerPrefab, spawnPos, Quaternion.identity);
+
+        PlayerController pc = remote.GetComponent<PlayerController>();
+        pc.myPlayerId = playerId;
+        pc.isLocalPlayer = false;
+
+        remotePlayers.Add(playerId, remote);
+    }
 
     private void CreateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
     {
-        if (remotePlayers.ContainsKey(playerId)) return;
-        if (remotePlayerPrefabs == null)
-        {
-            Debug.LogError("RemotePlayerPrefabÀÌ ¼³Á¤ µÇÁö ¾Ê¾Ò½À´Ï´Ù.");
-            return;
-        }
+        Vector3 spawnPos = position != null ? position.ToVector3() : new Vector3(0, 1, 0);
+        Quaternion spawnRot = rotation != null ? Quaternion.Euler(rotation.ToVector3()) : Quaternion.identity;
 
-        Vector3 pos = position != null ? position.ToVector3() : Vector3.zero;
-        Vector3 rot = rotation != null ? rotation.ToVector3() : Vector3.zero;
+        GameObject newPlayer = Instantiate(remotePlayerPrefab, spawnPos, spawnRot);
+        PlayerController pc = newPlayer.GetComponent<PlayerController>();
+        pc.myPlayerId = playerId;
+        pc.isLocalPlayer = false;
 
-        GameObject player = Instantiate(remotePlayerPrefabs, pos, Quaternion.Euler(rot));
-        player.name = "RemotePlayer_" + playerId;
-        remotePlayers.Add(playerId, player);
-
-        Debug.Log($"¿ø°İ ÇÃ·¹ÀÌ¾î »ı¼º : {playerId} at {pos} , rotation {rot}");
+        remotePlayers.Add(playerId, newPlayer);
     }
+    /* private void CreateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
+     {
+         if (remotePlayers.ContainsKey(playerId)) return;
+         if (remotePlayerPrefabs == null)
+         {
+             Debug.LogError("RemotePlayerPrefabì´ ì„¤ì • ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.");
+             return;
+         }
+
+         Vector3 pos = position != null ? position.ToVector3() : Vector3.zero;
+         Vector3 rot = rotation != null ? rotation.ToVector3() : Vector3.zero;
+
+         GameObject player = Instantiate(remotePlayerPrefabs, pos, Quaternion.Euler(rot));
+         player.name = "RemotePlayer_" + playerId;
+         remotePlayers.Add(playerId, player);
+
+         Debug.Log($"ì›ê²© í”Œë ˆì´ì–´ ìƒì„± : {playerId} at {pos} , rotation {rot}");
+     }*/
 
     private void RemoveRemotePlayer(string playerId)
     {
@@ -322,33 +402,33 @@ public class NetworkManager : MonoBehaviour
         {
             Destroy(remotePlayers[playerId]);
             remotePlayers.Remove(playerId);
-            Debug.Log($"¿ø°İ ÇÃ·¹ÀÌ¾î Á¦°Å : {playerId}");
+            Debug.Log($"ì›ê²© í”Œë ˆì´ì–´ ì œê±° : {playerId}");
         }
     }
 
     private void UpdateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
     {
-
-        if(!remotePlayers.ContainsKey(playerId))     //ÇÃ·¹ÀÌ¾î°¡ ¾øÀ¸¸é »ı¼º
+        if (!remotePlayers.ContainsKey(playerId))
         {
-            CreateRemotePlayer(playerId, position, rotation);
+            CreateRemotePlayer(playerId, position, rotation);  // ì„œë²„ ID ê¸°ì¤€
             return;
         }
 
         GameObject player = remotePlayers[playerId];
         if (player == null) return;
 
-        if(position != null)      //ºÎµå·¯¿î ÀÌµ¿
+        if (position != null)
         {
-            player.transform.position = Vector3.Lerp(player.transform.position, position.ToVector3(), Time.deltaTime * 10f);
+            player.transform.position =
+                Vector3.Lerp(player.transform.position, position.ToVector3(), Time.deltaTime * 10f);
         }
 
-        if(rotation != null)    //ºÎµå·¯¿î È¸Àü
+        if (rotation != null)
         {
-            Quaternion targetRotation = Quaternion.Euler(rotation.ToVector3());
-            player.transform.rotation = Quaternion.Lerp(player.transform.rotation, targetRotation, Time.deltaTime * 10f);
+            Quaternion targetRot = Quaternion.Euler(rotation.ToVector3());
+            player.transform.rotation =
+                Quaternion.Lerp(player.transform.rotation, targetRot, Time.deltaTime * 10f);
         }
-
     }
     private void OnDestroy()
     {

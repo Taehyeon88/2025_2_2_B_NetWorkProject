@@ -14,7 +14,8 @@ public class AuthManager : MonoBehaviour
     private const string REFRESH_TOKEN_PREFS_KEY = "RefreshToken";
     private const string TOKEN_EXPIRY_PREFS_KEY = "TokenExpiry";
 
-    private string accessToken;
+    [HideInInspector]
+    public string accessToken;
     private string refreshToken;
     private DateTime tokenExpiryTime;
     private int userId;
@@ -94,31 +95,33 @@ public class AuthManager : MonoBehaviour
 
             if (www.result != UnityWebRequest.Result.Success)
             {
+                accessToken = null;
+                refreshToken = null;
+                userId = 0;
                 Debug.LogError($"Login Error : {www.error}");
-                Debug.LogError($"Login Response Body: {www.downloadHandler?.text}");
+                yield break; // 코루틴 종료
             }
             else
             {
                 try
                 {
                     var response = JsonConvert.DeserializeObject<LoginResponse>(www.downloadHandler.text);
-                    if (response == null)
-                    {
-                        Debug.LogError("[Login] Failed to parse response JSON.");
-                        yield break;
-                    }
-
                     userId = response.user_id;
                     SaveTokenToPrefs(response.accessToken, response.refreshToken, DateTime.UtcNow.AddMinutes(15));
                     Debug.Log("Login Successful - user_id: " + userId);
                 }
                 catch (Exception ex)
                 {
+                    accessToken = null; // 반드시 초기화
+                    refreshToken = null;
+                    userId = 0;
                     Debug.LogError("[Login] Exception parsing response: " + ex.Message);
-                    Debug.LogError("[Login] Response body: " + www.downloadHandler.text);
+                    yield break;
                 }
             }
         }
+
+
     }
 
     public IEnumerator LogOut()
@@ -168,4 +171,6 @@ public class AuthManager : MonoBehaviour
     {
         public string accessToken;
     }
+
+
 }

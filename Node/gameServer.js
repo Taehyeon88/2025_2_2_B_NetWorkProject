@@ -297,50 +297,54 @@ class GameServer {
     }
 
 
-    broadcast(data, clients, playerNickName)         //해당 채팅방의 맵버들한테 브로드 캐스팅
-    {
-        //모든 클라이언트를 받아서 메세지 전달
+    broadcast(data, clients, playerNickName)
+{
+  
+    clients = Array.isArray(clients)
+        ? clients
+        : clients instanceof Set
+            ? Array.from(clients)
+            : [clients];
 
-        let message = "";
-        if(data.chatType === "WHISPER")  //귓 [보낼 사람 닉넴]: 내용
+    let message = "";
+    if(data.chatType === "WHISPER")  //귓 [보낼 사람 닉넴]: 내용
+    {
+        message = `귓 [${playerNickName} -> ${data.target_nickname}]: ${data.text}`;
+    }
+    else if(data.chatType === "LOCAL" || data.chatType === "GLOBAL")//[문태현]: 내용
+    {
+        message = `[${playerNickName}]: ${data.text}`;
+    }
+    else   //길드 혹은 파티 채팅일 경우
+    {
+        switch(data.connectType)
         {
-            message = `귓 [${playerNickName} -> ${data.target_nickname}]: ${data.text}`;
-        }
-        else if(data.chatType === "LOCAL" || data.chatType === "GLOBAL")//[문태현]: 내용
-        {
-            message = `[${playerNickName}]: ${data.text}`;
-        }
-        else   //길드 혹은 파티 채팅일 경우
-        {
-            switch(data.connectType)
-            {
-                case "create":   // 문태현님이 길드채팅인 레전브방을 생성했습니다.
+            case "create":
                 message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방을 생성했습니다.`;
                 break;
-                case "join":     // 문태현님이 길드채팅인 레전브방에 참여하셨습니다.
+            case "join":
                 message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방에 참여하셨습니다.`;
                 break;
-                case "chat":     // [문태현]: 안녕하세요!!
+            case "chat":
                 message = `[${playerNickName}]: ${data.text}`;
                 break;
-                case "Exit":     // 문태현님이 길드채팅인 레전브방을 나가셨습니다.
+            case "exit":
                 message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방을 나가셨습니다.`;
                 break;
-            }
         }
-        data.text = message;   //데이터의 텍스트를 전달할 메세지를 할당
-
-        const data2 = JSON.stringify(data);
-
-        //해당 채팅방의 모든 클라이언트에게 데이터 보내기
-        clients.forEach(client =>
-        {
-            if(client.readyState === WebSocket.OPEN)
-            {
-                client.send(data2);
-            }
-        });
     }
+
+    data.text = message;  
+    const data2 = JSON.stringify(data);
+
+    clients.forEach(client =>
+    {
+        if(client && client.readyState === WebSocket.OPEN)
+        {
+            client.send(data2);
+        }
+    });
+  }
 }
 
     async function checkGuildExist(user_id)  //가입한 길드 존재 여부 체크
