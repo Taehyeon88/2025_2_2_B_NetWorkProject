@@ -18,7 +18,11 @@ public class AuthManager : MonoBehaviour
     public string accessToken;
     private string refreshToken;
     private DateTime tokenExpiryTime;
-    private int userId;
+
+    [Header("테스트용")]
+    [SerializeField] private int t_playerId;
+    public int userId { get; private set; }
+    public string nickname { get; private set; }
 
     void Start()
     {
@@ -98,6 +102,7 @@ public class AuthManager : MonoBehaviour
                 accessToken = null;
                 refreshToken = null;
                 userId = 0;
+                nickname = "UnKnown";
                 Debug.LogError($"Login Error : {www.error}");
                 yield break; // 코루틴 종료
             }
@@ -107,14 +112,16 @@ public class AuthManager : MonoBehaviour
                 {
                     var response = JsonConvert.DeserializeObject<LoginResponse>(www.downloadHandler.text);
                     userId = response.user_id;
+                    nickname = response.nickname;
                     SaveTokenToPrefs(response.accessToken, response.refreshToken, DateTime.UtcNow.AddMinutes(15));
-                    Debug.Log("Login Successful - user_id: " + userId);
+                    Debug.Log("Login Successful - user_id: " + userId + $" | nickname: {nickname}");
                 }
                 catch (Exception ex)
                 {
                     accessToken = null; // 반드시 초기화
                     refreshToken = null;
                     userId = 0;
+                    nickname = "UnKnown";
                     Debug.LogError("[Login] Exception parsing response: " + ex.Message);
                     yield break;
                 }
@@ -126,7 +133,7 @@ public class AuthManager : MonoBehaviour
 
     public IEnumerator LogOut()
     {
-        var body = new { user_id = userId };
+        var body = new { user_id = userId == 0 ? t_playerId : userId };
         var jsonData = JsonConvert.SerializeObject(body);
 
         using (UnityWebRequest www = new UnityWebRequest($"{SERVER_URL}/api/logout", "POST"))
@@ -149,6 +156,7 @@ public class AuthManager : MonoBehaviour
                 accessToken = null;
                 refreshToken = null;
                 userId = 0;
+                nickname = "UnKnown";
 
                 Debug.Log("로그아웃 완료");
             }
@@ -162,6 +170,7 @@ public class AuthManager : MonoBehaviour
     public class LoginResponse
     {
         public int user_id;
+        public string nickname;
         public string accessToken;
         public string refreshToken;
     }

@@ -7,7 +7,7 @@ const mysql = require('mysql2/promise');
 const pool = mysql.createPool({
     host : 'localhost',
     user : 'root',
-    password : 'pe288212!',
+    password : '112233',
     database : 'gametest'
 });
 
@@ -76,6 +76,8 @@ router.post('/login', async(req, res) => {
             return res.status(400).json({error : '잘못된 사용자면 또는 비밀번호입니다.'});
         }
 
+        console.log(user[0].user_id);
+
         const [temp] = await pool.query(
             'SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ?',
             [user[0].user_id]
@@ -85,13 +87,14 @@ router.post('/login', async(req, res) => {
             return res.status(400).json({error : '이미 로그인이된 계정입니다.'});
         }
 
-        user_id = user[0].user_id;    
+        user_id = user[0].user_id; 
+        nickname = user[0].nickname;   
         await pool.query(
             'UPDATE users SET logined_at = NOW() WHERE user_id = ?',
             [user_id]
         );
-
-        const accessToken = generateAccessToken(user[0].user_id, username);
+        
+        const accessToken = generateAccessToken(username);
         //console.log(accessToken);
         const refreshToken = jwt.sign({username}, REFRESH_TOKEN_SECRET);
 
@@ -105,7 +108,7 @@ router.post('/login', async(req, res) => {
             [user_id, refreshToken]
         ); 
 
-        res.json({user_id, accessToken, refreshToken});
+        res.json({user_id, nickname, accessToken, refreshToken});
     }
     catch(error)
     {
@@ -113,7 +116,7 @@ router.post('/login', async(req, res) => {
     }
 });
 
-//로그인 라우트
+//로그아웃 라우트
 router.post('/logout', async(req, res) => {
     const {user_id} = req.body;
 
@@ -138,8 +141,9 @@ router.post('/logout', async(req, res) => {
 });
 
 //액세스 토큰 생성 함수
-function generateAccessToken(user_id, username) {
-    return jwt.sign({user_id, username}, JWT_SECRET, {expiresIn: '15m'});
+function generateAccessToken(username) 
+{
+    return jwt.sign({username} , JWT_SECRET, {expiresIn: '15m'});
 }
 
 //토큰 인증 미들웨어

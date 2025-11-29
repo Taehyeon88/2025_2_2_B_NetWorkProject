@@ -45,8 +45,8 @@ public class RegisterUI : MonoBehaviour
             NetworkManager nm = FindObjectOfType<NetworkManager>();
             if (nm != null)
             {
-                nm.SetMyNickname(inputNickname.text);
-                nm.myPlayerId = inputUsername.text; 
+                Debug.Log($"UI - 닉네임: {authManager.nickname}, 아이디: {authManager.userId}");
+                nm.SetMyUserInfo(authManager.nickname, authManager.userId);
 
                 nm.ConnectToServer();
             }

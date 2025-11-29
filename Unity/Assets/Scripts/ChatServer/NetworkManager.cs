@@ -5,20 +5,21 @@ using NativeWebSocket;
 using Newtonsoft.Json;
 using UnityEngine.UI;
 using System;
-using Unity.VisualScripting;
-using Newtonsoft.Json.Converters;
-using System.Threading.Tasks;
 [Serializable]
 public class NetworkMessage
 {
-    public string userId;           // 서버 고유 ID
-    public string playerNickName;
+    public string user_id;         // 사용자 고유 ID
     public string text;            // 메시지
-    public string chatType;        // GLOBAL, PARTY, GUILD, LOCAL, WHISPER
+    public string type;            // login, positionUpdate, close
+    public string chatType;        // GLOBAL, PARTY, GUILD, REGION, WHISPER
     public string connectType;     // chat, create, join, Exit
-    public string targetNickName;  // 귓말 대상\
+    public string target_nickname;  // 귓말 대상 닉네임
     public Vecter3Data position; 
     public Vecter3Data rotation;
+
+    public string nickname;       //닉네임 (공용)
+
+    public string error;          //서버의 피드백을 받는용
 }
 
 public enum ChatChannel
@@ -26,11 +27,17 @@ public enum ChatChannel
     General,    // 일반
     Party,      // 파티
     Guild,      // 길드
-    Local,      // 지역
+    Region,      // 지역
     Whisper     // 귓속말
 }
 
-
+public enum ConnectType
+{
+    create,
+    join,
+    chat,
+    exit
+}
 
 [Serializable]
 public class Vecter3Data
@@ -73,15 +80,19 @@ public class NetworkManager : MonoBehaviour
 
     [HideInInspector]
     public string type;
+
+    [Header("플레이어 ID")]      //테스트용을 전부 인스팩터창에 띄움
+    public string myPlayerId;   //로그인 시 받게 되는 user_id
+    [SerializeField] private ChatChannel currentChannel = ChatChannel.General;
+    [SerializeField] private ConnectType currentConnectType = ConnectType.chat;
+    [SerializeField] private Button connectButton;
+
     [HideInInspector]
-    public string myPlayerId;
-    private string myNickname;
+    public string myNickname;  //로그인 시 받게 되는 user_nickname
 
     private Dictionary<string, GameObject> remotePlayers = new Dictionary<string, GameObject>();
     private float lastPositionSendTime;
-    private Button connectButton;
 
-    private ChatChannel currentChannel = ChatChannel.General;
     // Start is called before the first frame update
     void Start()
     {
@@ -94,30 +105,26 @@ public class NetworkManager : MonoBehaviour
             messageInput.onSubmit.AddListener((text) => { SendChatMessage(); });
         }
     }
-    public void SetMyPlayerId(string id)
-    {
-        myPlayerId = id;
-        myNickname = id; // 필요 시 서버에서 닉네임을 따로 받아 설정 가능
-    }
+
     public void OnWebSocketConnected()
     {
-        StartCoroutine(WaitAndSpawnLocalPlayer());
-        // 접속 메시지 서버로 전송 등
-    }
-
-    IEnumerator WaitAndSpawnLocalPlayer()
-    {
-        while (string.IsNullOrEmpty(myNickname))
-            yield return null;
-
         SpawnLocalPlayer();
+        // 접속 메시지 서버로 전송 등 --> 답변: 서버에서 자체적으로 접속되었음을 알수 있음
     }
-    public void SetMyNickname(string nickname)
+
+    public void SetMyUserInfo(string nickname, int id)
     {
+        Debug.Log($"서버 - 닉네임: {nickname}, 아이디: {id}");
         myNickname = nickname;
+        myPlayerId = id.ToString();
     }
     private void SpawnLocalPlayer()
     {
+        if (string.IsNullOrEmpty(myNickname))
+        {
+            myNickname = "UnKnown";
+        }
+
         if (localPlayer != null) return;
         if (playerPrefab == null) Debug.LogError("PlayerPrefab is NULL!");
         Debug.Log("Spawning player, nickname=" + myNickname);
@@ -149,7 +156,7 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    public async void ConnectToServer()
+    public async void ConnectToServer()      //서버 연결 함수 (+ 서버 이벤트 구독 함수)
     {
         if(webSocket != null && webSocket.State == WebSocketState.Open)
         {
@@ -161,12 +168,21 @@ public class NetworkManager : MonoBehaviour
 
         webSocket = new WebSocket(serverUrl);
 
-        webSocket.OnOpen += () =>
+        webSocket.OnOpen += async () =>
         {
             UpdateStatusText("연결됨", Color.green);
             AddToChatLog("[시스템] 서버에 연결되었습니다.");
 
-            OnWebSocketConnected();  
+            OnWebSocketConnected();
+
+            NetworkMessage message = new NetworkMessage()      //서버 접속과 동시에 서버에게 전달
+            {
+                type = "login",
+                user_id = myPlayerId,
+                position = new Vecter3Data(localPlayer.transform.position),
+                rotation = new Vecter3Data(localPlayer.transform.eulerAngles)
+            };
+            await webSocket.SendText(JsonConvert.SerializeObject(message)); 
         };
 
         webSocket.OnError += (e) =>
@@ -197,24 +213,41 @@ public class NetworkManager : MonoBehaviour
         await webSocket.Connect();
     }
 
-    private void HandleMessage(string json)
+    private void HandleMessage(string json)   //서버에서 정보를 받는 함수
     {
         try
         {
             NetworkMessage data = JsonConvert.DeserializeObject<NetworkMessage>(json);
 
+            if(!string.IsNullOrEmpty(data.error))
+                Debug.Log($"서버의 피드백 : {data.error}");
+
             switch (data.connectType)
             {
                 case "chat": DisplayChatMessage(data); break;
-                case "create": AddToChatLog($"[시스템] [{data.chatType}] 방이 생성되었습니다."); break;
-                case "join": AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방에 참여했습니다."); break;
-                case "Exit": AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방을 떠났습니다."); break;
+                case "create": AddToChatLog(data.text); break;
+                case "join": AddToChatLog(data.text); break;
+                case "exit": AddToChatLog(data.text); break;
             }
 
-            if (data.chatType == "positionUpdate" && data.userId != myPlayerId)
+            switch (data.type)
             {
-                UpdateRemotePlayer(data.userId, data.position, data.rotation);
+                case "login": AddToChatLog(data.text); break;
+                case "positionUpdate": 
+                    if(data.user_id != myPlayerId)
+                        UpdateRemotePlayer(data.user_id, data.nickname, data.position, data.rotation);
+
+                break;
+                case "playerJoin":
+                    if (data.user_id != myPlayerId)
+                        AddToChatLog(data.text);
+                    break;
+                case "close": 
+                    AddToChatLog(data.text);
+                    RemoveRemotePlayer(data.user_id);
+                    break;
             }
+
         }
         catch (Exception e)
         {
@@ -230,7 +263,7 @@ public class NetworkManager : MonoBehaviour
             chatLog.text += $"\n<color=#{htmlColor}>{message}</color>";
         }
     }
-    private async void SendChatMessage()
+    private async void SendChatMessage()     //서버로 정보 전달함수 (채팅관련)
     {
         if (string.IsNullOrEmpty(messageInput.text)) return;
 
@@ -242,23 +275,29 @@ public class NetworkManager : MonoBehaviour
 
         NetworkMessage msg = new NetworkMessage();
         msg.text = messageInput.text;
-        msg.playerNickName = myPlayerId;
-        msg.connectType = "chat";
+
+        switch (currentConnectType)
+        {
+            case ConnectType.create: msg.connectType = "create"; break;
+            case ConnectType.join: msg.connectType = "join"; break;
+            case ConnectType.chat: msg.connectType = "chat"; break;
+            case ConnectType.exit: msg.connectType = "exit"; break;
+        }
 
         switch (currentChannel)
         {
             case ChatChannel.General: msg.chatType = "GLOBAL"; break;
             case ChatChannel.Party: msg.chatType = "PARTY"; break;
             case ChatChannel.Guild: msg.chatType = "GUILD"; break;
-            case ChatChannel.Local: msg.chatType = "LOCAL"; break;
+            case ChatChannel.Region: msg.chatType = "REGION"; break;
             case ChatChannel.Whisper:
                 msg.chatType = "WHISPER";
-                msg.targetNickName = ExtractTargetNick(messageInput.text);
+                msg.target_nickname = ExtractTargetNick(messageInput.text);
                 msg.text = ExtractWhisperMessage(messageInput.text);
                 break;
         }
 
-        await SendMessageToServer(msg); 
+        await webSocket.SendText(JsonConvert.SerializeObject(msg));
         messageInput.text = "";
         messageInput.ActivateInputField(); 
     }
@@ -275,25 +314,17 @@ public class NetworkManager : MonoBehaviour
         return split.Length > 2 ? string.Join(" ", split, 2, split.Length - 2) : "";
     }
 
-
-    private async Task SendMessageToServer(NetworkMessage msg)
-    {
-        if (webSocket != null && webSocket.State == WebSocketState.Open)
-            await webSocket.SendText(JsonConvert.SerializeObject(msg));
-    }
     private async void SendPositionUpdate()
     {
         if (localPlayer == null) return;
 
-        NetworkMessage message = new NetworkMessage
+        NetworkMessage message = new NetworkMessage()
         {
-            chatType = "positionUpdate",
-            userId = myPlayerId,
-            playerNickName = myPlayerId,
+            type = "positionUpdate",
             position = new Vecter3Data(localPlayer.transform.position),
             rotation = new Vecter3Data(localPlayer.transform.eulerAngles)
         };
-        await SendMessageToServer(message);
+        await webSocket.SendText(JsonConvert.SerializeObject(message));
     }
 
     private void AddToChatLog(string message)
@@ -313,12 +344,11 @@ public class NetworkManager : MonoBehaviour
             case "GLOBAL": color = Color.white; break;
             case "PARTY": color = new Color(0.4f, 0.6f, 1f); break;
             case "GUILD": color = new Color(0.4f, 1f, 0.4f); break;
-            case "LOCAL": color = new Color(1f, 0.7f, 0.3f); break;
+            case "REGION": color = new Color(1f, 0.7f, 0.3f); break;
             case "WHISPER": color = new Color(0.75f, 0.4f, 1f); break;
         }
-
-        string sender = data.playerNickName == myPlayerId ? "나" : data.playerNickName;
-        AddToChatLogColored($"[{data.chatType}] {sender}: {data.text}", color);
+        Debug.Log("작동한다" + data.text);
+        AddToChatLogColored(data.text, color);
     }
     private void UpdateStatusText (string status, Color color)
     {
@@ -350,7 +380,7 @@ public class NetworkManager : MonoBehaviour
         remotePlayers.Add(playerId, remote);
     }
 
-    private void CreateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
+    private void CreateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)   //다른 플레이어 생성 함수
     {
         if (remotePlayers.ContainsKey(playerId)) return;
 
@@ -360,28 +390,11 @@ public class NetworkManager : MonoBehaviour
         GameObject newPlayer = Instantiate(remotePlayerPrefab, spawnPos, spawnRot);
         PlayerController pc = newPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = playerId;
+        pc.myPlayerNickName = playerNickName;
         pc.isLocalPlayer = false;
 
         remotePlayers.Add(playerId, newPlayer);
     }
-    /* private void CreateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
-     {
-         if (remotePlayers.ContainsKey(playerId)) return;
-         if (remotePlayerPrefabs == null)
-         {
-             Debug.LogError("RemotePlayerPrefab이 설정 되지 않았습니다.");
-             return;
-         }
-
-         Vector3 pos = position != null ? position.ToVector3() : Vector3.zero;
-         Vector3 rot = rotation != null ? rotation.ToVector3() : Vector3.zero;
-
-         GameObject player = Instantiate(remotePlayerPrefabs, pos, Quaternion.Euler(rot));
-         player.name = "RemotePlayer_" + playerId;
-         remotePlayers.Add(playerId, player);
-
-         Debug.Log($"원격 플레이어 생성 : {playerId} at {pos} , rotation {rot}");
-     }*/
 
     private void RemoveRemotePlayer(string playerId)
     {
@@ -393,11 +406,11 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void UpdateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
+    private void UpdateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)  //다른 플레이어들 정보 업데이트
     {
         if (!remotePlayers.ContainsKey(playerId))
         {
-            CreateRemotePlayer(playerId, position, rotation);
+            CreateRemotePlayer(playerId, playerNickName, position, rotation);
             return;
         }
 
@@ -421,7 +434,7 @@ public class NetworkManager : MonoBehaviour
     public void SelectChannelGeneral() { currentChannel = ChatChannel.General; UpdateChannelUI(); }
     public void SelectChannelParty() { currentChannel = ChatChannel.Party; UpdateChannelUI(); }
     public void SelectChannelGuild() { currentChannel = ChatChannel.Guild; UpdateChannelUI(); }
-    public void SelectChannelLocal() { currentChannel = ChatChannel.Local; UpdateChannelUI(); }
+    public void SelectChannelLocal() { currentChannel = ChatChannel.Region; UpdateChannelUI(); }
     public void SelectChannelWhisper() { currentChannel = ChatChannel.Whisper; UpdateChannelUI(); }
 
     private void UpdateChannelUI()

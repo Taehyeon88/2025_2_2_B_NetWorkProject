@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
 const pool = mysql.createPool({
     host : 'localhost',
     user : 'root',
-    password : 'pe288212!',
+    password : '112233',
     database : 'gametest'
 });
 
@@ -27,7 +27,7 @@ class GameServer {
         this.wss.on('connection', async (socket) => {
 
             let playerId = "-1";
-            let playerNickName = "UnKnown"
+            let playerNickName = "UnKnown";
 
             socket.on('message', async (text) =>
             {
@@ -42,6 +42,7 @@ class GameServer {
                         playerNickName = await getNickname(playerId);
                         this.players.set(playerId, {
                             socket : socket,
+                            nickname : playerNickName,
                             position: {x:0, y:0, z:0},
                             rotation: {x:0, y:0, z:0}
                         });
@@ -53,8 +54,7 @@ class GameServer {
                                 const joinMsg = {
                                 type: 'playerjoin',
                                 user_id : playerId,
-                                position: player.position,
-                                rotation: player.rotation
+                                nickname : player.nickname
                                 };
                             socket.send(JSON.stringify(joinMsg));
                             console.log(`기존 플레이어 정보 전송 : ${pid} -> ${playerId}`);
@@ -68,28 +68,33 @@ class GameServer {
                     else if(data.type === 'positionUpdate')
                     {
                         const player = this.players.get(playerId);
-                        if (player)
+                        if (!player) return;
+                        
+                        if(data.position)     //위치 값 저장
                         {
-                            if(data.position)     //위치 값 저장
-                            {
-                                player.position = data.position;
-                            }
-                            if(data.rotation)      //회전 값 저장
-                            {
-                                player.rotation = data.rotation;
-                            }
+                            player.position = data.position;
                         }
+                        if(data.rotation)      //회전 값 저장
+                        {
+                            player.rotation = data.rotation;
+                        }
+                        
+
+                        //console.log(`플레이어: ${playerId}, 위치: ${data.position}`)
 
                         //다른 플레이어들에게 브로드 캐스트
                         const updateMsg = {
                             type: 'positionUpdate',
                             user_id: playerId,
+                            nickname: playerNickName,
                             position: player.position,
                             rotation: player.rotation
                         };
                         this.broadcast(updateMsg, this.clients, playerNickName);
                         return;
                     }
+
+                    console.log(`챗타입: ${data.chatType}, 챗유형: ${data.connectType}, 메세지: ${data.text}`);
 
                     switch(data.chatType)
                     {
@@ -110,12 +115,13 @@ class GameServer {
                                     await createGuild(data.text);   //길드 생성
                                     const guild_id0 = await findGuildIdByName(data.text);
                                     await joinGuild(playerId, guild_id0);   //길드 가입
-                                    this.broadcast(data, socket, playerNickName); //생성 브로드 캐스팅   
+                                    this.broadcast(data, [socket], playerNickName); //생성 브로드 캐스팅   
                                 break;
                                 case "join": 
                                     if(await checkGuildExist(playerId) == 1)  //이미 소속 길드 존재 여부 체크
                                     {
                                         socket.send(JSON.stringify({error : '이미 가입한 길드가 존재합니다.'}));
+                                        console.log("이미 가입한 길드가 있음");
                                         return;
                                     }
                                     if(await checkGuildName(data.text) == 0)  //중복 길드 이름 체크
@@ -126,7 +132,7 @@ class GameServer {
                                     const guild_id = await findGuildIdByName(data.text);
                                     await joinGuild(playerId, guild_id);   //길드 가입
                                     const user_ids = await findGuildUserIds(guild_id);
-                                    this.broadcast(data, await findAllsockets(user_ids, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
                                 break;
                                 case "chat":
                                     if(await checkGuildExist(playerId) == 0)  //소속 길드 존재 여부 체크
@@ -137,7 +143,7 @@ class GameServer {
                                     const guild_id2 = await findGuildIdByUserId(playerId);
                                     const user_ids2 = await findGuildUserIds(guild_id2);
                                     await updateChat(playerId, playerNickName, data.chatType, data.text, guild_id2);
-                                    this.broadcast(data, await findAllsockets(user_ids2, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids2, this.players), playerNickName);
 
                                 break;
                                 case "exit": 
@@ -149,7 +155,7 @@ class GameServer {
                                     const guild_id3 = await findGuildIdByUserId(playerId);
                                     const user_ids3 = await findGuildUserIds(guild_id3);
                                     await exitGuild(playerId);
-                                    this.broadcast(data, await findAllsockets(user_ids3, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
                             }
                             break;
@@ -165,7 +171,7 @@ class GameServer {
                                     }
                                     const party_id = await createParty();   //파티 생성
                                     await joinParty(playerId, party_id);
-                                    this.broadcast(data, socket, playerNickName);  
+                                    this.broadcast(data, [socket], playerNickName);  
                                 break;
                                 case "join": 
                                     if(await checkPartyExist(playerId) == 1)  //이미 소속 길드 존재 여부 체크
@@ -180,7 +186,7 @@ class GameServer {
                                     }
                                     await joinParty(playerId, data.text);   //파티 가입
                                     const user_ids = await findPartyUserIds(data.text);
-                                    this.broadcast(data, await findAllsockets(user_ids, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
                                 break;
                                 case "chat":
                                     if(await checkPartyExist(playerId) == 0)  //소속 길드 존재 여부 체크
@@ -191,7 +197,7 @@ class GameServer {
                                     const party_id2 = await findPartyIdByUserId(playerId);
                                     const user_ids2 = await findPartyUserIds(party_id2);
                                     await updateChat(playerId, playerNickName, data.chatType, data.text, party_id2);
-                                    this.broadcast(data, await findAllsockets(user_ids2, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids2, this.players), playerNickName);
 
                                 break;
                                 case "exit": 
@@ -203,7 +209,7 @@ class GameServer {
                                     const party_id3 = await findPartyIdByUserId(playerId);
                                     const user_ids3 = await findPartyUserIds(party_id3);
                                     await exitParty(playerId);
-                                    this.broadcast(data, await findAllsockets(user_ids3, this.players, playerNickName));
+                                    this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
                             }
                             break;
@@ -213,7 +219,7 @@ class GameServer {
                                 socket.send(JSON.stringify({error : '해당 채팅은 chat이외에 사용할 수 없습니다.'}));
                                 return;
                             }
-                            await updateChat(playerId, playerNickName, data.chatType, data.text, "-1");
+                            await updateChat(playerId, playerNickName, data.chatType, data.text, "0");
                             this.broadcast(data, this.clients, playerNickName);
                         break;
 
@@ -235,6 +241,8 @@ class GameServer {
                                         Math.pow(myplayer.position.y - tplayer.position.y, 2) +
                                         Math.pow(myplayer.position.z - tplayer.position.z, 2)
                                     );
+
+                                    console.log(`플레이어1: ${playerId}, 플레이어2: ${pid}, 거리: ${distance}`);
                                     if (distance <= maxDistance)
                                     {
                                         users.push(pid);
@@ -247,7 +255,7 @@ class GameServer {
                                     userSockets.push(player.socket);
                                 }
                             });
-                            await updateChat(playerId, playerNickName, data.chatType, data.text, "-1");
+                            await updateChat(playerId, playerNickName, data.chatType, data.text, "0");
                             this.broadcast(data, userSockets, playerNickName);
                         break;
 
@@ -269,7 +277,7 @@ class GameServer {
                             let clients = [];
                             clients.push(playerId);
                             clients.push(target_id[0].user_id);
-                            this.broadcast(data, await findAllsockets(clients, this.players, playerNickName));
+                            this.broadcast(data, await findAllsockets(clients, this.players), playerNickName);
                             break;
                     }
                 }
@@ -285,7 +293,7 @@ class GameServer {
                 this.clients.delete(socket);
                 this.players.delete(playerId);
 
-                const m = {type: "close", text : `${playerNickName}님이 서버를 나가셨습니다!`};
+                const m = {type: "close", user_id : playerId, text : `${playerNickName}님이 서버를 나가셨습니다!`};
                 this.broadcast(m, this.clients, playerNickName);
             });
 
@@ -297,44 +305,41 @@ class GameServer {
     }
 
 
-    broadcast(data, clients, playerNickName)
+broadcast(data, clients, playerNickName)
 {
-  
-    clients = Array.isArray(clients)
-        ? clients
-        : clients instanceof Set
-            ? Array.from(clients)
-            : [clients];
-
+    const nickname = playerNickName;
     let message = "";
     if(data.chatType === "WHISPER")  //귓 [보낼 사람 닉넴]: 내용
     {
-        message = `귓 [${playerNickName} -> ${data.target_nickname}]: ${data.text}`;
+        message = `귓 [${nickname} -> ${data.target_nickname}]: ${data.text}`;
     }
     else if(data.chatType === "LOCAL" || data.chatType === "GLOBAL")//[문태현]: 내용
     {
-        message = `[${playerNickName}]: ${data.text}`;
+        message = `[${nickname}]: ${data.text}`;
     }
-    else   //길드 혹은 파티 채팅일 경우
+    else if( data.connectType === "create")
     {
-        switch(data.connectType)
-        {
-            case "create":
-                message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방을 생성했습니다.`;
-                break;
-            case "join":
-                message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방에 참여하셨습니다.`;
-                break;
-            case "chat":
-                message = `[${playerNickName}]: ${data.text}`;
-                break;
-            case "exit":
-                message = `${playerNickName}님이 ${data.chatType}채팅인 ${data.text}방을 나가셨습니다.`;
-                break;
-        }
+        message = `${nickname}님이 ${data.chatType}채팅인 ${data.text}방을 생성했습니다.`;
+    }
+    else if (data.connectType === "join")
+    {
+        message = `${nickname}님이 ${data.chatType}채팅인 ${data.text}방에 참여하셨습니다.`;
+    }
+    else if (data.connectType === "chat")
+    {
+        message = `[${nickname}]: ${data.text}`;
+    }
+    else if (data.connectType === "exit")
+    {
+        message = `${nickname}님이 ${data.chatType}채팅인 ${data.text}방을 나가셨습니다.`;
     }
 
-    data.text = message;  
+    if(message !== "")
+    {
+        data.text = message;
+        console.log(`메세지 내용: ${data.text} \n 메세지 타입: ${data.chatType}, 접근 타입: ${data.connectType}`);
+    }
+
     const data2 = JSON.stringify(data);
 
     clients.forEach(client =>
@@ -354,8 +359,7 @@ class GameServer {
             const [temp] = await pool.query(
             'SELECT COUNT(*) AS count FROM guild_members WHERE user_id = ?', [user_id]   //이미 소속 길드 조회
             );
-        
-            return temp.count;
+            return temp[0].count;
         }
         catch (error) 
         {
@@ -371,7 +375,7 @@ class GameServer {
             const [temp] = await pool.query(
             'SELECT COUNT(*) AS count FROM party_members WHERE user_id = ?', [user_id]   //이미 소속 파티 조회
             );
-            return temp.count;
+            return temp[0].count;
         }
         catch (error) 
         {
@@ -387,7 +391,7 @@ class GameServer {
             const [temp] = await pool.query(
             'SELECT COUNT(*) AS count FROM guilds WHERE guild_name = ?', [guild_name]   //이미 소속 길드 조회
             );
-            return temp.count;
+            return temp[0].count;
         }
         catch (error) 
         {
@@ -403,7 +407,7 @@ class GameServer {
             const [temp] = await pool.query(
             'SELECT COUNT(*) AS count FROM parties WHERE party_id = ?', [party_id]   //이미 소속 파티 조회
             );
-            return temp.count;
+            return temp[0].count;
         }
         catch (error) 
         {
@@ -483,7 +487,12 @@ class GameServer {
             const [rows] = await pool.query(
             'SELECT user_id FROM guild_members gm WHERE gm.guild_id = ?', [guild_id]
             );
-            return rows;
+            
+            if(rows.length > 0)
+            {
+                return rows.map(row => row.user_id);
+            }
+            return null;
         }
         catch (error) 
         {
@@ -515,7 +524,12 @@ class GameServer {
             const [rows] = await pool.query(
             'SELECT user_id FROM party_members pm WHERE pm.party_id = ?', [party_id]
             );
-            return rows;
+
+            if(rows.length > 0)
+            {
+                return rows.map(row => row.user_id);
+            }
+            return null;
         }
         catch (error) 
         {
@@ -534,7 +548,7 @@ class GameServer {
         }
         catch (error) 
         {
-            console.error(`DB 길드 가입 에러 (ID: ${user_id}):`, error);
+            console.error(`DB 길드 가입 에러 (ID: ${user_id, guild_id}):`, error);
             return null;
         }        
     }
@@ -606,7 +620,7 @@ class GameServer {
         {
             case "GUILD": string = "target_guild_id"; break;
             case "WHISPER": string = "target_user_id"; break;
-            case "REGION": string = "target_region_id"; break;
+            case "REGION": string = ""; break;
             case "PARTY": string = "target_party_id"; break;
             case "GLOBAL": string = ""; break;
         }
@@ -635,13 +649,12 @@ class GameServer {
         }        
     }
 
-    async function findAllsockets(user_rows, players)  //채팅방에 존재하는 모든 socket 찾기 (row용)
+    async function findAllsockets(user_ids, players)  //채팅방에 존재하는 모든 socket 찾기 (row용)
     {
         let results = [];
-
-        for(const row of user_rows)
+        for(const id of user_ids)
         {
-            const player = players.get(row.user_id);
+            const player = players.get(String(id));
             if(player)
             {
                 results.push(player.socket);

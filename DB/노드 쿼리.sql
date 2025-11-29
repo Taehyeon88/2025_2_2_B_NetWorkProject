@@ -77,6 +77,8 @@ SELECT user_id FROM users u WHERE u.nickname = '1112'
 
 SELECT nickname FROM users u WHERE u.user_id = '1'
 
+SELECT COUNT(*) AS count FROM guild_members WHERE user_id = '1'
+
 -- 길드 채팅 메세지 호출
 SELECT sender_nickname, message_text, created_at 
 FROM message_permanent 
