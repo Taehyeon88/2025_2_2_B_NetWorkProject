@@ -213,6 +213,30 @@ public class NetworkManager : MonoBehaviour
         await webSocket.Connect();
     }
 
+    public async void DisconnectFromServer()
+    {
+        if (webSocket != null && webSocket.State == WebSocketState.Open)
+        {
+            await webSocket.Close();   
+            webSocket = null;
+        }
+
+        // Remote Player 정리
+        foreach (var player in remotePlayers.Values)
+        {
+            if (player != null) Destroy(player);
+        }
+        remotePlayers.Clear();
+
+        if (localPlayer != null)
+        {
+            Destroy(localPlayer);
+            localPlayer = null;
+        }
+
+        AddToChatLog("[시스템] 서버 연결 종료");
+    }
+
     private void HandleMessage(string json)   //서버에서 정보를 받는 함수
     {
         try
@@ -227,7 +251,10 @@ public class NetworkManager : MonoBehaviour
                 case "chat": DisplayChatMessage(data); break;
                 case "create": AddToChatLog(data.text); break;
                 case "join": AddToChatLog(data.text); break;
-                case "exit": AddToChatLog(data.text); break;
+                case "exit":
+                    AddToChatLog(data.text);
+                    RemoveRemotePlayer(data.user_id);
+                    break;
             }
 
             switch (data.type)
@@ -455,4 +482,6 @@ public class NetworkManager : MonoBehaviour
             channelButtons[i].colors = colors;
         }
     }
+
+
 }

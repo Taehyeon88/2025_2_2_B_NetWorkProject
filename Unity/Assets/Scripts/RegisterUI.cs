@@ -58,8 +58,12 @@ public class RegisterUI : MonoBehaviour
     }
     public void OnLogOutButton()
     {
-
         StartCoroutine(authManager.LogOut());
+
+        NetworkManager nm = FindObjectOfType<NetworkManager>();
+        if (nm != null)
+            nm.DisconnectFromServer();   // ¡Ú Ãß°¡
+
         txtLog.text = "·Î±×¾Æ¿ô µÆ½À´Ï´Ù";
     }
 }

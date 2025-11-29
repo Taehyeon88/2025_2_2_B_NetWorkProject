@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
 const pool = mysql.createPool({
     host : 'localhost',
     user : 'root',
-    password : '112233',
+    password : 'pe288212!',
     database : 'gametest'
 });
 
@@ -35,17 +35,20 @@ class GameServer {
                 {
                     const data = JSON.parse(text);
                     
-                    if(data.type === "login")   //서버에 연결되었을 때, 한번 호출
-                    {
-                        this.clients.add(socket);
-                        playerId = data.user_id;
-                        playerNickName = await getNickname(playerId);
-                        this.players.set(playerId, {
-                            socket : socket,
-                            nickname : playerNickName,
-                            position: {x:0, y:0, z:0},
-                            rotation: {x:0, y:0, z:0}
-                        });
+                   if(data.type === "login")
+                     {
+                      this.clients.add(socket);
+                      playerId = data.user_id;
+                     playerNickName = await getNickname(playerId);
+
+                     await pool.query('UPDATE users SET is_online = 1 WHERE user_id = ?', [playerId]);
+
+                     this.players.set(playerId, {
+                      socket : socket,
+                      nickname : playerNickName,
+                      position: {x:0, y:0, z:0},
+                    rotation: {x:0, y:0, z:0}
+                      });
 
                         //기존 플레이어들 정보를 새 플레이어에게 전송
                         this.players.forEach((player, pid) =>{
@@ -289,13 +292,27 @@ class GameServer {
                 
             });
 
-            socket.on('close', async ()=> {
-                this.clients.delete(socket);
-                this.players.delete(playerId);
+            socket.on('close', async () => {
 
-                const m = {type: "close", user_id : playerId, text : `${playerNickName}님이 서버를 나가셨습니다!`};
-                this.broadcast(m, this.clients, playerNickName);
-            });
+    if (!playerId) return;
+
+    this.clients.delete(socket);
+    this.players.delete(playerId);
+
+    try {
+        await pool.query('UPDATE users SET is_online = 0 WHERE user_id = ?', [playerId]);
+    } catch (err) {
+        console.error("유저 offline 업데이트 실패:", err);
+    }
+
+    const m = {
+        type: "close",
+        user_id: playerId,
+        text: `${playerNickName}님이 서버를 나가셨습니다!`
+    };
+
+    this.broadcast(m, this.clients, playerNickName);
+});
 
             socket.on('error', (error) => {
                 console.error('소켓 에러 : ', error);

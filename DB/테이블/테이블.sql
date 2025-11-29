@@ -1,15 +1,20 @@
 -- 유저 테이블
 CREATE TABLE users(
-	-- 유저 정보
+    -- 유저 정보
     user_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '유저 고유 번호',
     username VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '로그인 ID',
     passward VARCHAR(255) NOT NULL COMMENT '해싱된 비밀번호',
     nickname VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '유저 닉네임',
+
+    -- 온라인 flags
+   ALTER TABLE users
+ADD COLUMN is_online TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=오프라인, 1=온라인';
+
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
     logined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그인일',
     logouted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그아웃일'
-)
+);
 -- 테이블 삭제
 DROP TABLE users
 

@@ -1,9 +1,21 @@
-//필요한 모듈 불러 오기
-require('dotenv').config();         //dotenv 모듈을 사용해서 환경 변수 로드
+
+require('dotenv').config(); // 반드시 최상단
+
+const mysql = require('mysql2/promise');
+
+const pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});         //dotenv 모듈을 사용해서 환경 변수 로드
 const express = require('express');
 const http = require('http');
 
-const {GameServer} = require('./gameServer');
+const { GameServer } = require('./gameServer');
 const authRouter = require('./authRouter');
 
 const app = express();
@@ -13,14 +25,24 @@ app.use(express.json());
 app.use('/api', authRouter);
 
 // HTTP 서버 생성 (Express 앱을 기반으로)
-// HTTP 서버는 Express 요청을 처리하는 동시에 WebSocket 서버의 기반이 됩니다.
 const httpServer = http.createServer(app);
 
-//GameSever(WebSocket) 인스턴스 생성 및 HTTP 서버 통합
+// GameServer(WebSocket) 인스턴스 생성
 const gameServerInstance = new GameServer(httpServer);
 
-//통합 서버 시작
-httpServer.listen(PORT, ()=>{
+//서버 시작 시 모든 유저 오프라인 초기화
+(async () => {
+    try {
+        await pool.query('UPDATE users SET is_online = 0');
+        await pool.query('DELETE FROM refresh_tokens'); 
+        console.log("서버 시작 시 전체 is_online 및 refresh_tokens 초기화 완료");
+    } catch (err) {
+        console.error("초기화 실패:", err);
+    }
+})();
+
+// 통합 서버 시작
+httpServer.listen(PORT, () => {
     console.log('------------------------------------------------');
     console.log(`[Server] 통합 서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`[HTTP] 인증 API 주소: http://localhost:${PORT}/api/login`);
