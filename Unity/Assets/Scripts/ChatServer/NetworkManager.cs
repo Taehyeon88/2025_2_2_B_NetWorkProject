@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using System;
 using Unity.VisualScripting;
 using Newtonsoft.Json.Converters;
+using System.Threading.Tasks;
 [Serializable]
 public class NetworkMessage
 {
@@ -84,19 +85,20 @@ public class NetworkManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        connectButton.onClick.AddListener(ConnectToServer);
+        if (connectButton != null)
+            connectButton.onClick.AddListener(ConnectToServer);
 
-        // 엔터로 메시지 전송
         if (messageInput != null)
         {
             messageInput.onEndEdit.RemoveAllListeners();
-            messageInput.onSubmit.AddListener((text) =>
-            {
-                SendChatMessage();
-            });
+            messageInput.onSubmit.AddListener((text) => { SendChatMessage(); });
         }
     }
-
+    public void SetMyPlayerId(string id)
+    {
+        myPlayerId = id;
+        myNickname = id; // 필요 시 서버에서 닉네임을 따로 받아 설정 가능
+    }
     public void OnWebSocketConnected()
     {
         StartCoroutine(WaitAndSpawnLocalPlayer());
@@ -132,11 +134,9 @@ public class NetworkManager : MonoBehaviour
 #if !UNITY_WEBGL || UNITY_EDITOR
         if (webSocket != null) webSocket.DispatchMessageQueue();
 #endif
-
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
-            if (messageInput.isFocused)
-                SendChatMessage();
+            if (messageInput.isFocused) SendChatMessage();
         }
 
         if (webSocket != null && webSocket.State == WebSocketState.Open && localPlayer != null)
@@ -203,44 +203,22 @@ public class NetworkManager : MonoBehaviour
         {
             NetworkMessage data = JsonConvert.DeserializeObject<NetworkMessage>(json);
 
-            if (data.connectType == "chat")
+            switch (data.connectType)
             {
-                DisplayChatMessage(data);
-                return;
+                case "chat": DisplayChatMessage(data); break;
+                case "create": AddToChatLog($"[시스템] [{data.chatType}] 방이 생성되었습니다."); break;
+                case "join": AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방에 참여했습니다."); break;
+                case "Exit": AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방을 떠났습니다."); break;
             }
 
-            if (data.connectType == "create")
+            if (data.chatType == "positionUpdate" && data.userId != myPlayerId)
             {
-                AddToChatLog($"[시스템] [{data.chatType}] 방이 생성되었습니다.");
-                return;
+                UpdateRemotePlayer(data.userId, data.position, data.rotation);
             }
-
-            if (data.connectType == "join")
-            {
-                AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방에 참여했습니다.");
-                return;
-            }
-
-            if (data.connectType == "Exit")
-            {
-                AddToChatLog($"[시스템] [{data.playerNickName}] 가 [{data.chatType}] 방을 떠났습니다.");
-                return;
-            }
-
-            if (data.chatType == "positionUpdate")
-            {
-                if (data.userId != myPlayerId)
-                {
-                    UpdateRemotePlayer(data.userId, data.position, data.rotation);
-                }
-                return;
-            }
-
         }
-
         catch (Exception e)
         {
-            Debug.LogError($"메세지 처리 중 에러: {e.Message}");
+            Debug.LogError($"메시지 처리 중 에러: {e.Message}");
         }
     }
 
@@ -264,7 +242,7 @@ public class NetworkManager : MonoBehaviour
 
         NetworkMessage msg = new NetworkMessage();
         msg.text = messageInput.text;
-        msg.playerNickName = myPlayerId; // 로그인 시 받은 플레이어 닉네임 or userId
+        msg.playerNickName = myPlayerId;
         msg.connectType = "chat";
 
         switch (currentChannel)
@@ -280,8 +258,9 @@ public class NetworkManager : MonoBehaviour
                 break;
         }
 
-        await webSocket.SendText(JsonConvert.SerializeObject(msg));
+        await SendMessageToServer(msg); 
         messageInput.text = "";
+        messageInput.ActivateInputField(); 
     }
 
     private string ExtractTargetNick(string rawMessage)
@@ -296,6 +275,12 @@ public class NetworkManager : MonoBehaviour
         return split.Length > 2 ? string.Join(" ", split, 2, split.Length - 2) : "";
     }
 
+
+    private async Task SendMessageToServer(NetworkMessage msg)
+    {
+        if (webSocket != null && webSocket.State == WebSocketState.Open)
+            await webSocket.SendText(JsonConvert.SerializeObject(msg));
+    }
     private async void SendPositionUpdate()
     {
         if (localPlayer == null) return;
@@ -303,12 +288,12 @@ public class NetworkManager : MonoBehaviour
         NetworkMessage message = new NetworkMessage
         {
             chatType = "positionUpdate",
+            userId = myPlayerId,
             playerNickName = myPlayerId,
             position = new Vecter3Data(localPlayer.transform.position),
             rotation = new Vecter3Data(localPlayer.transform.eulerAngles)
         };
-        await webSocket.SendText(JsonConvert.SerializeObject(message));
-
+        await SendMessageToServer(message);
     }
 
     private void AddToChatLog(string message)
@@ -367,6 +352,8 @@ public class NetworkManager : MonoBehaviour
 
     private void CreateRemotePlayer(string playerId, Vecter3Data position, Vecter3Data rotation)
     {
+        if (remotePlayers.ContainsKey(playerId)) return;
+
         Vector3 spawnPos = position != null ? position.ToVector3() : new Vector3(0, 1, 0);
         Quaternion spawnRot = rotation != null ? Quaternion.Euler(rotation.ToVector3()) : Quaternion.identity;
 
@@ -410,7 +397,7 @@ public class NetworkManager : MonoBehaviour
     {
         if (!remotePlayers.ContainsKey(playerId))
         {
-            CreateRemotePlayer(playerId, position, rotation);  // 서버 ID 기준
+            CreateRemotePlayer(playerId, position, rotation);
             return;
         }
 
@@ -418,17 +405,10 @@ public class NetworkManager : MonoBehaviour
         if (player == null) return;
 
         if (position != null)
-        {
-            player.transform.position =
-                Vector3.Lerp(player.transform.position, position.ToVector3(), Time.deltaTime * 10f);
-        }
+            player.transform.position = Vector3.Lerp(player.transform.position, position.ToVector3(), Time.deltaTime * 10f);
 
         if (rotation != null)
-        {
-            Quaternion targetRot = Quaternion.Euler(rotation.ToVector3());
-            player.transform.rotation =
-                Quaternion.Lerp(player.transform.rotation, targetRot, Time.deltaTime * 10f);
-        }
+            player.transform.rotation = Quaternion.Lerp(player.transform.rotation, Quaternion.Euler(rotation.ToVector3()), Time.deltaTime * 10f);
     }
     private void OnDestroy()
     {
