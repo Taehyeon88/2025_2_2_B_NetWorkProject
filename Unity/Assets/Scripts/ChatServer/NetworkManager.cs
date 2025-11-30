@@ -135,9 +135,6 @@ public class NetworkManager : MonoBehaviour
 
         NetworkMessage msg = new NetworkMessage()
         {
-            type = "createGuild",    // 서버에 있는 create case로 전달
-            user_id = myPlayerId,
-            nickname = myNickname,
             text = guildName,
             chatType = "GUILD",
             connectType = "create"
@@ -151,9 +148,6 @@ public class NetworkManager : MonoBehaviour
     {
         NetworkMessage msg = new NetworkMessage()
         {
-            type = "joinGuild",
-            user_id = myPlayerId,
-            nickname = myNickname,
             text = guildName,
             chatType = "GUILD",
             connectType = "join"
@@ -218,10 +212,6 @@ public class NetworkManager : MonoBehaviour
 #if !UNITY_WEBGL || UNITY_EDITOR
         if (webSocket != null) webSocket.DispatchMessageQueue();
 #endif
-        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-        {
-            if (messageInput.isFocused) SendChatMessage();
-        }
 
         if (webSocket != null && webSocket.State == WebSocketState.Open && localPlayer != null)
         {
@@ -326,48 +316,32 @@ public class NetworkManager : MonoBehaviour
             // 길드 UI는 채팅이 아닌 create/join 전용
             if (data.chatType == "GUILD")
             {
-                // UI 알림 메시지 출력 (채팅창)
-                if (data.connectType == "chat")
-                {
-                    DisplayChatMessage(data);
-                }
-
                 // 길드 UI 업데이트 (create 또는 join)
                 if (data.connectType == "create" || data.connectType == "join")
                 {
                     string guildName = data.guildName; // 🔥 서버가 보내는 guildName 필드를 사용
-
-                    // 혹시 서버가 guildName을 안 보내는 구버전이면 문장에서 추출 ↓
-                    if (string.IsNullOrEmpty(guildName))
-                    {
-                        guildName = data.text;
-                        if (guildName.Contains("님이") && guildName.Contains("길드를"))
-                        {
-                            int start = guildName.IndexOf("님이 ") + 3;
-                            int end = guildName.IndexOf(" 길드를");
-                            if (start > 2 && end > start)
-                                guildName = guildName.Substring(start, end - start);
-                        }
-                    }
-
-                    UpdateGuildUI(guildName, data.user_id, data.connectType);
-                    return;
+                    UpdateGuildUI(guildName, myPlayerId, data.connectType);
                 }
             }
 
-            // 다른 이벤트 처리
-            switch (data.connectType)
+            switch (data.connectType)     //채팅 관련 메세지를 올리는 부분
             {
                 case "create":
+                    AddToChatLog(data.text);
+                    break;
                 case "join":
+                    AddToChatLog(data.text);
+                    break;
+                case "chat":
+                    DisplayChatMessage(data);
+                    break;
                 case "exit":
                     AddToChatLog(data.text);
-                    if (data.connectType == "exit")
-                        RemoveRemotePlayer(data.user_id);
+                    RemoveRemotePlayer(data.user_id);
                     break;
             }
 
-            switch (data.type)
+            switch (data.type)     //채팅 관련 메세지를 올리는 부분
             {
                 case "login":
                     AddToChatLog(data.text);
@@ -388,7 +362,7 @@ public class NetworkManager : MonoBehaviour
                     RemoveRemotePlayer(data.user_id);
                     break;
             }
-            Debug.Log($"받은 데이터: {json}");
+            //Debug.Log($"받은 데이터: {json}");
         }
 
         catch (Exception e)
@@ -430,13 +404,7 @@ public class NetworkManager : MonoBehaviour
         {
             case ChatChannel.General: msg.chatType = "GLOBAL"; break;
             case ChatChannel.Party: msg.chatType = "PARTY"; break;
-            case ChatChannel.Guild:
-                msg.chatType = "GUILD";
-                if (currentConnectType == ConnectType.chat && string.IsNullOrEmpty(msg.text) == false)
-                {
-                    await webSocket.SendText(JsonConvert.SerializeObject(msg));
-                }
-                break;
+            case ChatChannel.Guild: msg.chatType = "GUILD"; break;
             case ChatChannel.Region: msg.chatType = "REGION"; break;
             case ChatChannel.Whisper:
                 msg.chatType = "WHISPER";
@@ -479,7 +447,7 @@ public class NetworkManager : MonoBehaviour
     {
         if(chatLog != null)
         {
-            chatLog.text += $"\n{message}";
+            chatLog.text += $"{message}\n";
         }
     }
 

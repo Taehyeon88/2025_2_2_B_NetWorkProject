@@ -4,10 +4,10 @@ const http = require('http');
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host : 'localhost',
-    user : 'root',
-    password : 'pe288212!',
-    database : 'gametest'
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
 });
 
 const maxDistance = parseFloat(process.env.maxDistance || 30);
@@ -118,7 +118,8 @@ class GameServer {
                                     await createGuild(data.text);   //길드 생성
                                     const guild_id0 = await findGuildIdByName(data.text);
                                     await joinGuild(playerId, guild_id0);   //길드 가입
-                                    this.broadcast(data, [socket], playerNickName); //생성 브로드 캐스팅   
+                                    data.guildName = data.text;             //길드 이름 추가
+                                    this.broadcast(data, this.clients, playerNickName); //생성 브로드 캐스팅   
                                 break;
                                 case "join": 
                                     if(await checkGuildExist(playerId) == 1)  //이미 소속 길드 존재 여부 체크
@@ -135,6 +136,7 @@ class GameServer {
                                     const guild_id = await findGuildIdByName(data.text);
                                     await joinGuild(playerId, guild_id);   //길드 가입
                                     const user_ids = await findGuildUserIds(guild_id);
+                                    data.guildName = data.text;             //길드 이름 추가
                                     this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
                                 break;
                                 case "chat":
@@ -158,6 +160,7 @@ class GameServer {
                                     const guild_id3 = await findGuildIdByUserId(playerId);
                                     const user_ids3 = await findGuildUserIds(guild_id3);
                                     await exitGuild(playerId);
+                                    data.user_id = playerId;
                                     this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
                             }
@@ -174,7 +177,8 @@ class GameServer {
                                     }
                                     const party_id = await createParty();   //파티 생성
                                     await joinParty(playerId, party_id);
-                                    this.broadcast(data, [socket], playerNickName);  
+                                    data.partyId = party_id;             //파티 아이디 추가
+                                    this.broadcast(data, this.clients, playerNickName);  
                                 break;
                                 case "join": 
                                     if(await checkPartyExist(playerId) == 1)  //이미 소속 길드 존재 여부 체크
@@ -189,6 +193,7 @@ class GameServer {
                                     }
                                     await joinParty(playerId, data.text);   //파티 가입
                                     const user_ids = await findPartyUserIds(data.text);
+                                    data.partyId = data.text;             //파티 아이디 추가
                                     this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
                                 break;
                                 case "chat":
@@ -212,6 +217,7 @@ class GameServer {
                                     const party_id3 = await findPartyIdByUserId(playerId);
                                     const user_ids3 = await findPartyUserIds(party_id3);
                                     await exitParty(playerId);
+                                    data.user_id = playerId;
                                     this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
                             }

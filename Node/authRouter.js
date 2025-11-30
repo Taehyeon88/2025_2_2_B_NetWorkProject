@@ -5,20 +5,16 @@ const bcrypt = require('bcrypt');
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host : 'localhost',
-    user : 'root',
-    password : 'pe288212!',
-    database : 'gametest'
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
 });
 
 
 //Express 앱 생성 및 미들웨어 설정
 const router = express.Router();
 router.use(bodyParser.json());
-
-//사용자 데이터 및 리프래시 토큰 저장소 (실체는 데이터베이스에서 진행)
-const users = [];
-const refreshTokens = {};
 
 //환경 변수에서 시크릿 키와 포트 가져오기
 const JWT_SECRET = process.env.JWT_SECRET;
