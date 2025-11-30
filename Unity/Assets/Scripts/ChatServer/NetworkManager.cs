@@ -312,7 +312,10 @@ public class NetworkManager : MonoBehaviour
             NetworkMessage data = JsonConvert.DeserializeObject<NetworkMessage>(json);
 
             if (!string.IsNullOrEmpty(data.error))
+            {
+                AddToChatLog($"[시스템] {data.error}");
                 Debug.Log($"서버의 피드백 : {data.error}");
+            }
 
             // 길드 UI는 채팅이 아닌 create/join 전용
             if (data.chatType == "GUILD")
@@ -339,6 +342,9 @@ public class NetworkManager : MonoBehaviour
                 case "exit":
                     AddToChatLog(data.text);
                     RemoveRemotePlayer(data.user_id);
+                    break;
+                case "destroy":
+                    AddToChatLog(data.text);
                     break;
             }
 

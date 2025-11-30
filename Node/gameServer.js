@@ -117,7 +117,7 @@ class GameServer {
                                     }
                                     await createGuild(data.text);   //길드 생성
                                     const guild_id0 = await findGuildIdByName(data.text);
-                                    await joinGuild(playerId, guild_id0);   //길드 가입
+                                    await joinGuild(playerId, guild_id0, true);   //길드 가입
                                     data.guildName = data.text;             //길드 이름 추가
                                     this.broadcast(data, this.clients, playerNickName); //생성 브로드 캐스팅   
                                 break;
@@ -134,7 +134,7 @@ class GameServer {
                                         return;
                                     }
                                     const guild_id = await findGuildIdByName(data.text);
-                                    await joinGuild(playerId, guild_id);   //길드 가입
+                                    await joinGuild(playerId, guild_id, false);   //길드 가입
                                     const user_ids = await findGuildUserIds(guild_id);
                                     data.guildName = data.text;             //길드 이름 추가
                                     this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
@@ -158,9 +158,23 @@ class GameServer {
                                         return;
                                     }
                                     const guild_id3 = await findGuildIdByUserId(playerId);
-                                    data.text = findGuildName(guild_id3);
+                                    data.text = await findGuildName(guild_id3);    //길드 이름 추가
                                     const user_ids3 = await findGuildUserIds(guild_id3);
-                                    await exitGuild(playerId);
+
+                                    //파티 파괴 예외처리
+                                    //조건 : 1. 파티에 맴버가 없는가?, 2. 파티장이 나갔는가?
+                                    const rank = await GetGuildRank(playerId);
+                                    console.log(rank);
+                                    if(rank === "MASTER")
+                                    {
+                                        await DestroyGuild(guild_id3);   //길드 파괴
+                                        data.connectType = "destroy";
+                                    }
+                                    else
+                                    {
+                                        await exitGuild(playerId);    //길드 나가기
+                                    }
+
                                     data.user_id = playerId;
                                     this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
@@ -369,6 +383,10 @@ broadcast(data, clients, playerNickName)
             message = `${nickname}님이 ${data.chatType}채팅인 파티를 나가셨습니다.`;
         }
     }
+    else if (data.connectType === "destroy")
+    {
+        message = `${nickname}님이 ${data.chatType}채팅방인 ${data.text}방을 파괴하였습니다.`;
+    }
 
     if(message !== "")
     {
@@ -527,7 +545,7 @@ broadcast(data, clients, playerNickName)
         }
         catch (error) 
         {
-            console.error(`DB 길드 아이디 조회 에러 (ID: ${user_id}):`, error);
+            console.error(`DB 길드 이름 조회 에러 (ID: ${user_id}):`, error);
             return null;
         }        
     }
@@ -590,17 +608,62 @@ broadcast(data, clients, playerNickName)
         }        
     }
 
-    async function joinGuild(user_id, guild_id)  //길드 가입
+    async function joinGuild(user_id, guild_id, isMaster)  //길드 가입
     {
         try
         {
-            await pool.query(
-            'INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)', [user_id, guild_id]
-            );
+            if(isMaster)
+            {
+                await pool.query(
+                'INSERT INTO guild_members (user_id, guild_id, guild_rank) VALUES (?, ?, ?)', [user_id, guild_id, "MASTER"]
+                );
+            }
+            else
+            {
+                await pool.query(
+                'INSERT INTO guild_members (user_id, guild_id, guild_rank) VALUES (?, ?, ?)', [user_id, guild_id, "MEMBER"]
+                );
+            }
         }
         catch (error) 
         {
             console.error(`DB 길드 가입 에러 (ID: ${user_id, guild_id}):`, error);
+            return null;
+        }        
+    }
+
+    async function GetGuildRank(user_id)
+    {
+        try
+        {
+            const [rows] = await pool.query(
+            'SELECT guild_rank FROM guild_members gm WHERE gm.user_id = ?', [user_id]
+            );
+            return rows.length > 0 ? rows[0].guild_rank : null;
+        }
+        catch (error) 
+        {
+            console.error(`DB 길드 지위 조회 오류 (ID: ${user_id}):`, error);
+            return null;
+        }        
+    }
+
+    async function DestroyGuild(guild_id)
+    {
+        try
+        {
+            await pool.query(
+            'DELETE FROM guilds g WHERE g.guild_id = ?', [guild_id]
+            );
+
+            await pool.query(
+            'DELETE FROM guild_members gm WHERE gm.guild_id = ?', [guild_id]
+            );
+
+        }
+        catch (error) 
+        {
+            console.error(`DB 길드 파괴 (ID: ${user_id}):`, error);
             return null;
         }        
     }
