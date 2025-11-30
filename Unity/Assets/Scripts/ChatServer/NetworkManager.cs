@@ -20,6 +20,7 @@ public class NetworkMessage
     public string nickname;       //닉네임 (공용)
 
     public string error;          //서버의 피드백을 받는용
+    public string guildName;
 }
 
 public enum ChatChannel
@@ -93,6 +94,16 @@ public class NetworkManager : MonoBehaviour
     private Dictionary<string, GameObject> remotePlayers = new Dictionary<string, GameObject>();
     private float lastPositionSendTime;
 
+    [Header("Guild UI")]
+    [SerializeField] private GameObject guildPanel;       // 오른쪽 하단 길드 창
+    [SerializeField] private InputField guildNameInput;    // 길드 생성용
+    [SerializeField] private Button createGuildButton;     // 생성 버튼
+    [SerializeField] private Transform guildListContent;   // 길드 목록 Content (ScrollView)
+    [SerializeField] private Text selectedGuildNameText;  // 선택된 길드 표시
+    [SerializeField] private GameObject guildItemPrefab;
+    [SerializeField] private Button joinGuildButton;      // Join 버튼
+
+
     // Start is called before the first frame update
     void Start()
     {
@@ -104,6 +115,72 @@ public class NetworkManager : MonoBehaviour
             messageInput.onEndEdit.RemoveAllListeners();
             messageInput.onSubmit.AddListener((text) => { SendChatMessage(); });
         }
+
+        if (createGuildButton != null)
+            createGuildButton.onClick.AddListener(() =>
+            {
+                string guildName = guildNameInput.text;
+                CreateGuild(guildName);
+            });
+
+        joinGuildButton.onClick.AddListener(() =>
+        {
+            if (!string.IsNullOrEmpty(selectedGuildNameText.text))
+                JoinGuild(selectedGuildNameText.text);
+        });
+    }
+    public async void CreateGuild(string guildName)
+    {
+        if (string.IsNullOrEmpty(guildName)) return;
+
+        NetworkMessage msg = new NetworkMessage()
+        {
+            type = "createGuild",    // 서버에 있는 create case로 전달
+            user_id = myPlayerId,
+            nickname = myNickname,
+            text = guildName,
+            chatType = "GUILD",
+            connectType = "create"
+        };
+
+        if (webSocket != null && webSocket.State == WebSocketState.Open)
+            await webSocket.SendText(JsonConvert.SerializeObject(msg));
+    }
+
+    public async void JoinGuild(string guildName)
+    {
+        NetworkMessage msg = new NetworkMessage()
+        {
+            type = "joinGuild",
+            user_id = myPlayerId,
+            nickname = myNickname,
+            text = guildName,
+            chatType = "GUILD",
+            connectType = "join"
+        };
+
+        if (webSocket != null && webSocket.State == WebSocketState.Open)
+            await webSocket.SendText(JsonConvert.SerializeObject(msg));
+    }
+
+    private void UpdateGuildUI(string guildName, string playerId, string action)
+    {
+        Transform existing = guildListContent.Find(guildName);
+        if (existing != null) return;
+
+        GameObject item = Instantiate(guildItemPrefab, guildListContent);
+        item.transform.SetAsFirstSibling();
+        item.name = guildName;
+
+        Text txt = item.GetComponentInChildren<Text>();
+        txt.text = guildName;
+
+        Button btn = item.GetComponentInChildren<Button>();  
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() =>
+        {
+            selectedGuildNameText.text = guildName;   // 선택된 길드 UI 표시
+        });
     }
 
     public void OnWebSocketConnected()
@@ -237,48 +314,86 @@ public class NetworkManager : MonoBehaviour
         AddToChatLog("[시스템] 서버 연결 종료");
     }
 
-    private void HandleMessage(string json)   //서버에서 정보를 받는 함수
+    private void HandleMessage(string json)
     {
         try
         {
             NetworkMessage data = JsonConvert.DeserializeObject<NetworkMessage>(json);
 
-            if(!string.IsNullOrEmpty(data.error))
+            if (!string.IsNullOrEmpty(data.error))
                 Debug.Log($"서버의 피드백 : {data.error}");
 
+            // 길드 UI는 채팅이 아닌 create/join 전용
+            if (data.chatType == "GUILD")
+            {
+                // UI 알림 메시지 출력 (채팅창)
+                if (data.connectType == "chat")
+                {
+                    DisplayChatMessage(data);
+                }
+
+                // 길드 UI 업데이트 (create 또는 join)
+                if (data.connectType == "create" || data.connectType == "join")
+                {
+                    string guildName = data.guildName; // 🔥 서버가 보내는 guildName 필드를 사용
+
+                    // 혹시 서버가 guildName을 안 보내는 구버전이면 문장에서 추출 ↓
+                    if (string.IsNullOrEmpty(guildName))
+                    {
+                        guildName = data.text;
+                        if (guildName.Contains("님이") && guildName.Contains("길드를"))
+                        {
+                            int start = guildName.IndexOf("님이 ") + 3;
+                            int end = guildName.IndexOf(" 길드를");
+                            if (start > 2 && end > start)
+                                guildName = guildName.Substring(start, end - start);
+                        }
+                    }
+
+                    UpdateGuildUI(guildName, data.user_id, data.connectType);
+                    return;
+                }
+            }
+
+            // 다른 이벤트 처리
             switch (data.connectType)
             {
-                case "chat": DisplayChatMessage(data); break;
-                case "create": AddToChatLog(data.text); break;
-                case "join": AddToChatLog(data.text); break;
+                case "create":
+                case "join":
                 case "exit":
                     AddToChatLog(data.text);
-                    RemoveRemotePlayer(data.user_id);
+                    if (data.connectType == "exit")
+                        RemoveRemotePlayer(data.user_id);
                     break;
             }
 
             switch (data.type)
             {
-                case "login": AddToChatLog(data.text); break;
-                case "positionUpdate": 
-                    if(data.user_id != myPlayerId)
-                        UpdateRemotePlayer(data.user_id, data.nickname, data.position, data.rotation);
+                case "login":
+                    AddToChatLog(data.text);
+                    break;
 
-                break;
+                case "positionUpdate":
+                    if (data.user_id != myPlayerId)
+                        UpdateRemotePlayer(data.user_id, data.nickname, data.position, data.rotation);
+                    break;
+
                 case "playerJoin":
                     if (data.user_id != myPlayerId)
                         AddToChatLog(data.text);
                     break;
-                case "close": 
+
+                case "close":
                     AddToChatLog(data.text);
                     RemoveRemotePlayer(data.user_id);
                     break;
             }
-
+            Debug.Log($"받은 데이터: {json}");
         }
+
         catch (Exception e)
         {
-            Debug.LogError($"메시지 처리 중 에러: {e.Message}");
+            Debug.LogError($"메시지 처리 중 에러: {e}");
         }
     }
 
@@ -315,7 +430,13 @@ public class NetworkManager : MonoBehaviour
         {
             case ChatChannel.General: msg.chatType = "GLOBAL"; break;
             case ChatChannel.Party: msg.chatType = "PARTY"; break;
-            case ChatChannel.Guild: msg.chatType = "GUILD"; break;
+            case ChatChannel.Guild:
+                msg.chatType = "GUILD";
+                if (currentConnectType == ConnectType.chat && string.IsNullOrEmpty(msg.text) == false)
+                {
+                    await webSocket.SendText(JsonConvert.SerializeObject(msg));
+                }
+                break;
             case ChatChannel.Region: msg.chatType = "REGION"; break;
             case ChatChannel.Whisper:
                 msg.chatType = "WHISPER";
