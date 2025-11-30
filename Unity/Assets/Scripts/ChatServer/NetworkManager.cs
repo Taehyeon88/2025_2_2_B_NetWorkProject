@@ -14,6 +14,7 @@ public class NetworkMessage
     public string chatType;        // GLOBAL, PARTY, GUILD, REGION, WHISPER
     public string connectType;     // chat, create, join, Exit
     public string target_nickname;  // 귓말 대상 닉네임
+    public string target_id;        // 파티 가입 대상 유저 아이디
     public Vecter3Data position; 
     public Vecter3Data rotation;
 
