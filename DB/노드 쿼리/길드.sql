@@ -2,7 +2,7 @@
 INSERT INTO guilds (guild_name) VALUES (?)
 
 -- 길드 가입
-INSERT INTO guild_members (user_id, guild_id) VALUES (?, ?)
+INSERT INTO guild_members (user_id, guild_id, guild_rank) VALUES (?, ?, ?)
 
 -- 길드 탈퇴
 DELETE FROM guild_members where user_id = ? AND guild_id = ?
@@ -21,3 +21,5 @@ WHERE g.guild_id = ?
 SELECT sender_nickname, message_text, created_at 
 FROM message_permanent 
 WHERE guild_id = ?
+
+

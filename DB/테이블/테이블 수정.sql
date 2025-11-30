@@ -41,5 +41,11 @@ MODIFY COLUMN message_type ENUM(
     'PARTY'
     ) NOT NULL COMMENT'메세지 타입'
 
+-- 길드 맴버 직위 추가
+ALTER TABLE guild_members
+ADD COLUMN guild_rank ENUM(
+	'MASTER',
+	'MEMBER'
+	)
 
     
