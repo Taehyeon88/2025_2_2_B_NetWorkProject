@@ -58,6 +58,9 @@ CREATE TABLE guild_members(
     FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE,
     UNIQUE KEY (user_id)
 )
+
+ALTER TABLE guild_members
+ADD COLUMN guild_rank VARCHAR(20) DEFAULT 'MEMBER';
 -- 테이블 삭제
 DROP TABLE guild_members
 
