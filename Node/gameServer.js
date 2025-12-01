@@ -187,6 +187,19 @@ class GameServer {
                                 case "create":
                                     socket.send(JSON.stringify({error : '파티에는 해당 기능이 존재하지 않습니다.'}));
                                 break;
+
+                                case "partyInvite":
+                                const targetSocket = this.players.get(data.target_id)?.socket;
+                                if(targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+                                targetSocket.send(JSON.stringify({
+                                  connectType: "partyInvite",
+                                  user_id: playerId,        // 초대한 사람
+                                  nickname: playerNickName, // 초대한 사람 닉네임
+                                  target_id: data.target_id // 초대받는 사람
+                                   }));
+                                  }
+                                
+                                  break;
                                 case "join": 
                                     if(await checkPartyExist(playerId) == 1)  //이미 소속 길드 존재 여부 체크
                                     {

@@ -5,26 +5,59 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public string myPlayerId;  // ★ NetworkManager에서 채워줌
-    public string myPlayerNickName; // ★ NetworkManager에서 채워줌
-    public bool isLocalPlayer; // ★ 내가 조종하는 플레이어인지 구분
+    public string myPlayerId;
+    public string myPlayerNickName;
+    public bool isLocalPlayer;
+
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float rotateSpeed = 100f;
-    // Start is called before the first frame update
+    [SerializeField] private float rotateSpeed = 720f; // 회전 속도
+    private Transform cameraTransform;
 
+    private Vector3 moveDirection;
 
-    // Update is called once per frame
+    void Start()
+    {
+        if (isLocalPlayer)
+        {
+            cameraTransform = Camera.main.transform; // 카메라 기준 이동
+        }
+    }
+
     void Update()
     {
-        if (!isLocalPlayer) return; // 다른 플레이어는 입력 무시
+        if (!isLocalPlayer) return;
 
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
-        Vector3 moveDirection = transform.forward * vertical;
+        // 카메라 기준 이동 벡터 계산
+        Vector3 forward = cameraTransform.forward;
+        Vector3 right = cameraTransform.right;
+        forward.y = 0;
+        right.y = 0;
+        forward.Normalize();
+        right.Normalize();
+
+        moveDirection = (forward * vertical + right * horizontal).normalized;
+
+        // 이동
         transform.position += moveDirection * moveSpeed * Time.deltaTime;
 
-        transform.Rotate(Vector3.up * horizontal * rotateSpeed * Time.deltaTime);
+        // 이동 방향으로 회전
+        if (moveDirection != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
+        }
+    }
+
+    void OnMouseOver()
+    {
+        if (Input.GetMouseButtonDown(1)) // 오른쪽 클릭
+        {
+            string targetId = this.myPlayerId;
+            NetworkManager.Instance.SendPartyInvite(targetId);
+        }
     }
 }

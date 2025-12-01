@@ -63,6 +63,8 @@ public class Vecter3Data
 
 public class NetworkManager : MonoBehaviour
 {
+    public static NetworkManager Instance { get; private set; }
+
     private WebSocket webSocket;
     [SerializeField] private string serverUrl = "ws://localhost:4000";
 
@@ -70,6 +72,7 @@ public class NetworkManager : MonoBehaviour
     [SerializeField] private InputField messageInput;
     [SerializeField] private Text chatLog;
     [SerializeField] private Text statusText;
+    [SerializeField] private ScrollRect chatScrollRect;
     [Header("PlayerSetting")]
     [SerializeField] private GameObject playerPrefab;     //내 플레이어
     private GameObject localPlayer;    //다른 플레이어 Prefabs
@@ -103,13 +106,59 @@ public class NetworkManager : MonoBehaviour
     [SerializeField] private Text selectedGuildNameText;  // 선택된 길드 표시
     [SerializeField] private GameObject guildItemPrefab;
     [SerializeField] private Button joinGuildButton;      // Join 버튼
+    [SerializeField] private Button exitGuildButton;
 
+    [Header("Party Invite UI")]
+    [SerializeField] private GameObject partyInvitePanel;
+    [SerializeField] private Button acceptButton;
+    [SerializeField] private Button declineButton;
+    [SerializeField] private Button leavePartyButton;
 
+    private string currentInviterId;
+    private string currentInviterNickname;
+
+    private Dictionary<string, string> currentParty = new Dictionary<string, string>(); // key: playerId, value: nickname
+
+    private Dictionary<ChatChannel, string> chatLogs = new Dictionary<ChatChannel, string>();
+    private string whisperLog = "";
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        // 기존 Awake 코드
+        if (chatScrollRect != null && chatLog != null)
+        {
+            chatScrollRect.content = chatLog.rectTransform;
+        }
+    }
     // Start is called before the first frame update
     void Start()
     {
+        if (leavePartyButton != null)
+        {
+            leavePartyButton.onClick.AddListener(() =>
+            {
+                ExitParty();
+            });
+        }
+
+
+
+        foreach (ChatChannel channel in Enum.GetValues(typeof(ChatChannel)))
+        {
+            chatLogs[channel] = ""; // 초기화
+        }
+
         if (connectButton != null)
             connectButton.onClick.AddListener(ConnectToServer);
+
 
         if (messageInput != null)
         {
@@ -129,6 +178,77 @@ public class NetworkManager : MonoBehaviour
             if (!string.IsNullOrEmpty(selectedGuildNameText.text))
                 JoinGuild(selectedGuildNameText.text);
         });
+
+        exitGuildButton.onClick.AddListener(ExitGuild);
+    }
+
+
+    public async void SendPartyInvite(string targetPlayerId)
+    {
+        if (webSocket == null || webSocket.State != WebSocketState.Open) return;
+
+        NetworkMessage msg = new NetworkMessage()
+        {
+            connectType = "partyInvite",
+            target_id = targetPlayerId,
+            chatType = "PARTY"
+        };
+        await webSocket.SendText(JsonConvert.SerializeObject(msg));
+        AddToChatLog($"[시스템] {targetPlayerId}에게 파티 초대를 보냈습니다.");
+    }
+
+    public async void ExitParty()
+    {
+        if (webSocket == null || webSocket.State != WebSocketState.Open) return;
+
+        NetworkMessage msg = new NetworkMessage()
+        {
+            connectType = "exit",
+            chatType = "PARTY"
+        };
+        await webSocket.SendText(JsonConvert.SerializeObject(msg));
+
+        currentParty.Clear();
+        AddToChatLog("[시스템] 파티를 탈퇴했습니다.");
+
+        UpdatePartyUI(); // UI 갱신
+    }
+
+    public void InitializePartyUI(Dictionary<string, string> existingParty)
+    {
+        if (existingParty != null)
+            currentParty = new Dictionary<string, string>(existingParty);
+
+        UpdatePartyUI();
+    }
+
+    public async void AcceptParty(string inviterId, string inviterNickname)
+    {
+        if (webSocket == null || webSocket.State != WebSocketState.Open) return;
+
+        NetworkMessage msg = new NetworkMessage()
+        {
+            connectType = "join",
+            chatType = "PARTY",
+            target_id = inviterId,
+            nickname = myNickname
+        };
+
+        await webSocket.SendText(JsonConvert.SerializeObject(msg));
+
+        // 로컬에서도 바로 추가
+        if (!currentParty.ContainsKey(inviterId))
+            currentParty.Add(inviterId, inviterNickname);
+
+        AddToChatLog($"[시스템] {inviterNickname}님과 파티를 맺었습니다.");
+
+        UpdatePartyUI(); // UI 갱신
+    }
+
+    private void UpdatePartyUI()
+    {
+        // currentParty가 비어있으면 나가기 버튼 숨기기
+        leavePartyButton.gameObject.SetActive(currentParty.Count > 0);
     }
     public async void CreateGuild(string guildName)
     {
@@ -152,6 +272,18 @@ public class NetworkManager : MonoBehaviour
             text = guildName,
             chatType = "GUILD",
             connectType = "join"
+        };
+
+        if (webSocket != null && webSocket.State == WebSocketState.Open)
+            await webSocket.SendText(JsonConvert.SerializeObject(msg));
+    }
+
+    public async void ExitGuild()
+    {
+        NetworkMessage msg = new NetworkMessage()
+        {
+            chatType = "GUILD",
+            connectType = "exit"
         };
 
         if (webSocket != null && webSocket.State == WebSocketState.Open)
@@ -192,20 +324,21 @@ public class NetworkManager : MonoBehaviour
     }
     private void SpawnLocalPlayer()
     {
-        if (string.IsNullOrEmpty(myNickname))
-        {
-            myNickname = "UnKnown";
-        }
-
         if (localPlayer != null) return;
-        if (playerPrefab == null) Debug.LogError("PlayerPrefab is NULL!");
-        Debug.Log("Spawning player, nickname=" + myNickname);
+
         Vector3 spawnPos = new Vector3(0, 1, 0);
         localPlayer = Instantiate(playerPrefab, spawnPos, Quaternion.identity);
 
         PlayerController pc = localPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = myNickname;
         pc.isLocalPlayer = true;
+
+        // 카메라가 localPlayer를 따라가도록 설정
+        ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
+        if (cam != null)
+        {
+            cam.SetTarget(localPlayer.transform);
+        }
     }
     // Update is called once per frame
     void Update()
@@ -317,19 +450,43 @@ public class NetworkManager : MonoBehaviour
                 Debug.Log($"서버의 피드백 : {data.error}");
             }
 
-            // 길드 UI는 채팅이 아닌 create/join 전용
             if (data.chatType == "GUILD")
             {
-                // 길드 UI 업데이트 (create 또는 join)
                 if (data.connectType == "create" || data.connectType == "join")
                 {
-                    string guildName = data.guildName; // 🔥 서버가 보내는 guildName 필드를 사용
+                    string guildName = data.guildName; 
                     UpdateGuildUI(guildName, myPlayerId, data.connectType);
                 }
             }
 
-            switch (data.connectType)     //채팅 관련 메세지를 올리는 부분
+            switch (data.connectType)     
             {
+
+                case "partyInvite":
+                    if (data.target_id == myPlayerId)
+                    {
+                        AddToChatLog($"[시스템] {data.nickname}님이 파티 초대를 보냈습니다.");
+
+                        currentInviterId = data.user_id;       
+                        currentInviterNickname = data.nickname;
+                        partyInvitePanel.SetActive(true);
+
+                        acceptButton.onClick.RemoveAllListeners();
+                        acceptButton.onClick.AddListener(() =>
+                        {
+                            AcceptParty(currentInviterId, currentInviterNickname);
+                            partyInvitePanel.SetActive(false);
+                        });
+
+                        declineButton.onClick.RemoveAllListeners();
+                        declineButton.onClick.AddListener(() =>
+                        {
+                            partyInvitePanel.SetActive(false);
+                            AddToChatLog($"[시스템] {currentInviterNickname}님의 파티 초대를 거절했습니다.");
+                        });
+                    }
+                    break;
+
                 case "create":
                     AddToChatLog(data.text);
                     break;
@@ -378,15 +535,35 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void AddToChatLogColored(string message, Color color)
+    private void AddToChatLogColored(string message, Color color, ChatChannel channel)
     {
+        string htmlColor = ColorUtility.ToHtmlStringRGBA(color);
+        string formatted = $"<color=#{htmlColor}>{message}</color>\n";
+
+        // 귓속말이면 전용 log + 일반에도 표시
+        if (channel == ChatChannel.Whisper)
+        {
+            whisperLog += formatted;
+            chatLogs[ChatChannel.General] += formatted;
+        }
+        else
+        {
+            chatLogs[channel] += formatted;
+        }
+
+        // 현재 선택된 채널 화면에 적용
         if (chatLog != null)
         {
-            string htmlColor = UnityEngine.ColorUtility.ToHtmlStringRGBA(color);
-            chatLog.text += $"\n<color=#{htmlColor}>{message}</color>";
+            if (currentChannel == ChatChannel.General || currentChannel == ChatChannel.Whisper)
+                chatLog.text = chatLogs[ChatChannel.General]; 
+            else
+                chatLog.text = chatLogs[currentChannel];
+
+            Canvas.ForceUpdateCanvases();
+            chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
-    private async void SendChatMessage()     //서버로 정보 전달함수 (채팅관련)
+    private async void SendChatMessage()     
     {
         if (string.IsNullOrEmpty(messageInput.text)) return;
 
@@ -452,26 +629,36 @@ public class NetworkManager : MonoBehaviour
 
     private void AddToChatLog(string message)
     {
-        if(chatLog != null)
+        if (chatLog != null)
         {
-            chatLog.text += $"{message}\n";
+            // 현재 채널 기록에 추가
+            chatLogs[currentChannel] += message + "\n";
+
+            // 화면에 보여주기
+            chatLog.text = chatLogs[currentChannel];
+
+            // 스크롤 아래로
+            Canvas.ForceUpdateCanvases();
+            chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
+    
 
     private void DisplayChatMessage(NetworkMessage data)
     {
         Color color = Color.white;
+        ChatChannel channel = ChatChannel.General;
 
         switch (data.chatType)
         {
-            case "GLOBAL": color = Color.white; break;
-            case "PARTY": color = new Color(0.4f, 0.6f, 1f); break;
-            case "GUILD": color = new Color(0.4f, 1f, 0.4f); break;
-            case "REGION": color = new Color(1f, 0.7f, 0.3f); break;
-            case "WHISPER": color = new Color(0.75f, 0.4f, 1f); break;
+            case "GLOBAL": channel = ChatChannel.General; color = Color.white; break;
+            case "PARTY": channel = ChatChannel.Party; color = new Color(0.4f, 0.6f, 1f); break;
+            case "GUILD": channel = ChatChannel.Guild; color = new Color(0.4f, 1f, 0.4f); break;
+            case "REGION": channel = ChatChannel.Region; color = new Color(1f, 0.7f, 0.3f); break;
+            case "WHISPER": channel = ChatChannel.Whisper; color = new Color(0.75f, 0.4f, 1f); break;
         }
-        Debug.Log("작동한다" + data.text);
-        AddToChatLogColored(data.text, color);
+
+        AddToChatLogColored(data.text, color, channel);
     }
     private void UpdateStatusText (string status, Color color)
     {
@@ -576,6 +763,14 @@ public class NetworkManager : MonoBehaviour
                 colors.selectedColor = normalColor;
             }
             channelButtons[i].colors = colors;
+        }
+
+        // 선택한 채널 기록 화면에 표시
+        if (chatLog != null)
+        {
+            chatLog.text = chatLogs[currentChannel];
+            Canvas.ForceUpdateCanvases();
+            chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
 
