@@ -159,6 +159,7 @@ class GameServer {
                                     }
                                     const guild_id3 = await findGuildIdByUserId(playerId);
                                     data.text = await findGuildName(guild_id3);    //길드 이름 추가
+                                    data.guildName = data.text;
                                     const user_ids3 = await findGuildUserIds(guild_id3);
 
                                     //파티 파괴 예외처리
@@ -169,14 +170,15 @@ class GameServer {
                                     {
                                         await DestroyGuild(guild_id3);   //길드 파괴
                                         data.connectType = "destroy";
+                                        data.user_id = playerId;
+                                        this.broadcast(data, this.clients, playerNickName);
                                     }
                                     else
                                     {
                                         await exitGuild(playerId);    //길드 나가기
+                                        data.user_id = playerId;
+                                        this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                     }
-
-                                    data.user_id = playerId;
-                                    this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                 break;
                             }
                             break;
@@ -191,12 +193,12 @@ class GameServer {
                                 case "partyInvite":
                                 const targetSocket = this.players.get(data.target_id)?.socket;
                                 if(targetSocket && targetSocket.readyState === WebSocket.OPEN) {
-                                targetSocket.send(JSON.stringify({
-                                  connectType: "partyInvite",
-                                  user_id: playerId,        // 초대한 사람
-                                  nickname: playerNickName, // 초대한 사람 닉네임
-                                  target_id: data.target_id // 초대받는 사람
-                                   }));
+                                    targetSocket.send(JSON.stringify({
+                                        connectType: "partyInvite",
+                                        user_id: playerId,        // 초대한 사람
+                                        nickname: playerNickName, // 초대한 사람 닉네임
+                                        target_id: data.target_id // 초대받는 사람
+                                    }));
                                   }
                                 
                                   break;

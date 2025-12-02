@@ -5,6 +5,7 @@ using NativeWebSocket;
 using Newtonsoft.Json;
 using UnityEngine.UI;
 using System;
+using UnityEngine.Assertions.Must;
 [Serializable]
 public class NetworkMessage
 {
@@ -148,8 +149,6 @@ public class NetworkManager : MonoBehaviour
                 ExitParty();
             });
         }
-
-
 
         foreach (ChatChannel channel in Enum.GetValues(typeof(ChatChannel)))
         {
@@ -310,6 +309,15 @@ public class NetworkManager : MonoBehaviour
         });
     }
 
+    private void DeleteGuildUI(string guildName)
+    {
+        Transform existing = guildListContent.Find(guildName);
+
+        if (existing == null) return;
+
+        Destroy(existing.gameObject);    //해당 길드UI 파괴
+    }
+
     public void OnWebSocketConnected()
     {
         SpawnLocalPlayer();
@@ -457,6 +465,11 @@ public class NetworkManager : MonoBehaviour
                     string guildName = data.guildName; 
                     UpdateGuildUI(guildName, myPlayerId, data.connectType);
                 }
+                else if (data.connectType == "destroy")
+                {
+                    DeleteGuildUI(data.guildName);
+                }
+                
             }
 
             switch (data.connectType)     
