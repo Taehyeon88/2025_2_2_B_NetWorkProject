@@ -1,3 +1,5 @@
+-- 이거임
+
 -- 유저 테이블
 CREATE TABLE users(
     -- 유저 정보
@@ -5,16 +7,14 @@ CREATE TABLE users(
     username VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '로그인 ID',
     passward VARCHAR(255) NOT NULL COMMENT '해싱된 비밀번호',
     nickname VARCHAR(100) NOT NULL UNIQUE KEY COMMENT '유저 닉네임',
-
-    -- 온라인 flags
-   ALTER TABLE users
-ADD COLUMN is_online TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=오프라인, 1=온라인';
+    is_online TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=오프라인, 1=온라인',
 
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
     logined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그인일',
     logouted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '로그아웃일'
-);
+)
+
 -- 테이블 삭제
 DROP TABLE users
 
@@ -51,6 +51,10 @@ CREATE TABLE guild_members(
     user_id INT UNSIGNED NOT NULL COMMENT '유저 고유번호(users.user_id)',
     guild_id INT UNSIGNED NOT NULL COMMENT '길드 고유번호(guilds.guild_id)',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '길드 가입일',
+    guild_rank ENUM(
+	'MASTER',
+	'MEMBER'
+	),
     
     -- users 테이블과 연결
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
@@ -59,8 +63,6 @@ CREATE TABLE guild_members(
     UNIQUE KEY (user_id)
 )
 
-ALTER TABLE guild_members
-ADD COLUMN guild_rank VARCHAR(20) DEFAULT 'MEMBER';
 -- 테이블 삭제
 DROP TABLE guild_members
 

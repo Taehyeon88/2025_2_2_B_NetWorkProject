@@ -6,7 +6,7 @@ ON SCHEDULE
     STARTS CURRENT_TIMESTAMP + INTERVAL (24 - HOUR(CURRENT_TIMESTAMP) + 3) HOUR
     DO
     BEGIN
-        DELETE FROM message_temporary
-        WHERE created_at < NOW() - INTERVAL 7 DAY;
+        DELETE FROM message_permanent
+        WHERE created_at < NOW() - INTERVAL 7 DAY AND message_type = 'WHISPER';
     END//
 DELIMITER
