@@ -142,12 +142,12 @@ CREATE TABLE message_permanent(
 	-- 메세지 정보
     message_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '메세지 고유 번호',
     message_type ENUM(
-    'CHAT',
-    'GUILD',
-    'WHISPER',
-    'REGION',
-    'PARTY',
-    'GLOBAL'
+    'CHAT', -- 채팅 메세지
+    'GUILD', -- 길드 메세지
+    'WHISPER', -- 귓속말
+    'REGION', -- 지역
+    'PARTY', -- 파티
+    'GLOBAL' -- 공지
     ) NOT NULL COMMENT'메세지 타입',
     
     -- 보낸 유저 정보 및 메세지 내용
