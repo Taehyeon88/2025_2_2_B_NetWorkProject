@@ -194,6 +194,11 @@ public class NetworkManager : MonoBehaviour
         };
         await webSocket.SendText(JsonConvert.SerializeObject(msg));
         AddToChatLog($"[시스템] {targetPlayerId}에게 파티 초대를 보냈습니다.");
+
+        if (!currentParty.ContainsKey(myPlayerId))
+            currentParty.Add(myPlayerId, myNickname);
+
+        UpdatePartyUI();  
     }
 
     public async void ExitParty()
@@ -246,7 +251,6 @@ public class NetworkManager : MonoBehaviour
 
     private void UpdatePartyUI()
     {
-        // currentParty가 비어있으면 나가기 버튼 숨기기
         leavePartyButton.gameObject.SetActive(currentParty.Count > 0);
     }
     public async void CreateGuild(string guildName)
@@ -277,6 +281,7 @@ public class NetworkManager : MonoBehaviour
             await webSocket.SendText(JsonConvert.SerializeObject(msg));
     }
 
+
     public async void ExitGuild()
     {
         NetworkMessage msg = new NetworkMessage()
@@ -305,7 +310,7 @@ public class NetworkManager : MonoBehaviour
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() =>
         {
-            selectedGuildNameText.text = guildName;   // 선택된 길드 UI 표시
+            selectedGuildNameText.text = guildName;  
         });
     }
 
@@ -315,13 +320,12 @@ public class NetworkManager : MonoBehaviour
 
         if (existing == null) return;
 
-        Destroy(existing.gameObject);    //해당 길드UI 파괴
+        Destroy(existing.gameObject);    
     }
 
     public void OnWebSocketConnected()
     {
         SpawnLocalPlayer();
-        // 접속 메시지 서버로 전송 등 --> 답변: 서버에서 자체적으로 접속되었음을 알수 있음
     }
 
     public void SetMyUserInfo(string nickname, int id)
@@ -339,15 +343,16 @@ public class NetworkManager : MonoBehaviour
 
         PlayerController pc = localPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = myNickname;
+        pc.myPlayerNickName = myNickname;
         pc.isLocalPlayer = true;
 
-        // 카메라가 localPlayer를 따라가도록 설정
         ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
         if (cam != null)
         {
             cam.SetTarget(localPlayer.transform);
         }
     }
+
     // Update is called once per frame
     void Update()
     {
@@ -689,7 +694,7 @@ public class NetworkManager : MonoBehaviour
             await webSocket.Close();
         }
     }
-    public void SpawnRemotePlayer(string playerId)
+    public void SpawnRemotePlayer(string playerId, string playerNickName)
     {
         if (remotePlayers.ContainsKey(playerId)) return;
 
@@ -698,12 +703,13 @@ public class NetworkManager : MonoBehaviour
 
         PlayerController pc = remote.GetComponent<PlayerController>();
         pc.myPlayerId = playerId;
+        pc.myPlayerNickName = playerNickName;
         pc.isLocalPlayer = false;
 
         remotePlayers.Add(playerId, remote);
     }
 
-    private void CreateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)   //다른 플레이어 생성 함수
+    private void CreateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)
     {
         if (remotePlayers.ContainsKey(playerId)) return;
 
@@ -711,17 +717,19 @@ public class NetworkManager : MonoBehaviour
         Quaternion spawnRot = rotation != null ? Quaternion.Euler(rotation.ToVector3()) : Quaternion.identity;
 
         GameObject newPlayer = Instantiate(remotePlayerPrefab, spawnPos, spawnRot);
+
         PlayerController pc = newPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = playerId;
         pc.myPlayerNickName = playerNickName;
         pc.isLocalPlayer = false;
+
 
         remotePlayers.Add(playerId, newPlayer);
     }
 
     private void RemoveRemotePlayer(string playerId)
     {
-        if(remotePlayers.ContainsKey(playerId))
+        if (remotePlayers.ContainsKey(playerId))
         {
             Destroy(remotePlayers[playerId]);
             remotePlayers.Remove(playerId);
@@ -729,7 +737,7 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void UpdateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)  //다른 플레이어들 정보 업데이트
+    private void UpdateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)
     {
         if (!remotePlayers.ContainsKey(playerId))
         {

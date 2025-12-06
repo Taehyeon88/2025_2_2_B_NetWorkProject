@@ -1,26 +1,55 @@
-using System.Collections;
+Ôªøusing System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
     public string myPlayerId;
     public string myPlayerNickName;
     public bool isLocalPlayer;
+    public string myGuildName;
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float rotateSpeed = 720f; // »∏¿¸ º”µµ
+    [SerializeField] private float rotateSpeed = 720f; // ÌöåÏ†Ñ ÏÜçÎèÑ
     private Transform cameraTransform;
+
+    [HideInInspector]
+    public Text nameTag; // ÌîÑÎ¶¨ÌåπÏóê ÏûàÎäî TextÎ•º Ï∞∏Ï°∞
 
     private Vector3 moveDirection;
 
     void Start()
     {
-        if (isLocalPlayer)
+        nameTag = GetComponentInChildren<Text>();
+        if (nameTag != null)
         {
-            cameraTransform = Camera.main.transform; // ƒ´∏ﬁ∂Û ±‚¡ÿ ¿Ãµø
+            nameTag.text = myPlayerNickName;
+
+            if (isLocalPlayer)
+                nameTag.gameObject.SetActive(false); 
+        }
+
+        cameraTransform = Camera.main.transform;
+    }
+
+    void LateUpdate()
+    {
+        if (nameTag != null && cameraTransform != null)
+        {
+            Vector3 camPos = cameraTransform.position;
+            Vector3 tagPos = nameTag.transform.position;
+
+            Vector3 direction = new Vector3(camPos.x - tagPos.x, 0f, camPos.z - tagPos.z);
+
+            if (direction.sqrMagnitude > 0.001f)
+            {
+                nameTag.transform.rotation = Quaternion.LookRotation(direction);
+                nameTag.transform.Rotate(0, 180, 0); 
+            }
         }
     }
 
@@ -31,7 +60,6 @@ public class PlayerController : MonoBehaviour
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
-        // ƒ´∏ﬁ∂Û ±‚¡ÿ ¿Ãµø ∫§≈Õ ∞ËªÍ
         Vector3 forward = cameraTransform.forward;
         Vector3 right = cameraTransform.right;
         forward.y = 0;
@@ -41,10 +69,8 @@ public class PlayerController : MonoBehaviour
 
         moveDirection = (forward * vertical + right * horizontal).normalized;
 
-        // ¿Ãµø
         transform.position += moveDirection * moveSpeed * Time.deltaTime;
 
-        // ¿Ãµø πÊ«‚¿∏∑Œ »∏¿¸
         if (moveDirection != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
@@ -54,7 +80,7 @@ public class PlayerController : MonoBehaviour
 
     void OnMouseOver()
     {
-        if (Input.GetMouseButtonDown(1)) // ø¿∏•¬  ≈¨∏Ø
+        if (Input.GetMouseButtonDown(1)) // Ïò§Î•∏Ï™Ω ÌÅ¥Î¶≠
         {
             string targetId = this.myPlayerId;
             NetworkManager.Instance.SendPartyInvite(targetId);
