@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -12,7 +12,10 @@ public class RegisterUI : MonoBehaviour
     public TMP_InputField inputNickname;
     public Text txtLog;
 
-    public AuthManager authManager; // ¾À¿¡ ÀÖ´Â AuthManager ¿¬°á
+    public AuthManager authManager;
+
+    public GameObject startUI_Panel;   // ë¡œê·¸ì¸ UI ì „ì²´ ë¬¶ìŒ
+    public GameObject gameUI_Panel;    // ê²Œì„ UI ì „ì²´ ë¬¶ìŒ
 
     public void OnRegisterButton()
     {
@@ -20,50 +23,67 @@ public class RegisterUI : MonoBehaviour
         string password = inputPassword.text;
         string nickname = inputNickname.text;
 
-        StartCoroutine(authManager.Register(username, password, nickname));
-        txtLog.text = "È¸¿ø°¡ÀÔ ¿äÃ» Áß...";
-    }
+        txtLog.text = "íšŒì›ê°€ì… ìš”ì²­ ì¤‘...";
 
+        StartCoroutine(authManager.Register(username, password, nickname,
+            (success, message) =>
+            {
+                if (success)
+                {
+                    txtLog.text = "íšŒì›ê°€ì… ì„±ê³µ!";
+                }
+                else
+                {
+                    txtLog.text = $"íšŒì›ê°€ì… ì‹¤íŒ¨: {message}";
+                }
+            }
+        ));
+    }
     public void OnLoginButton()
     {
         string username = inputUsername.text;
         string password = inputPassword.text;
 
         StartCoroutine(LoginAndConnect(username, password));
-        txtLog.text = "·Î±×ÀÎ ¿äÃ» Áß...";
+        txtLog.text = "ë¡œê·¸ì¸ ìš”ì²­ ì¤‘...";
     }
+
     private IEnumerator LoginAndConnect(string username, string password)
     {
-        // ·Î±×ÀÎ ÄÚ·çÆ¾ ½ÇÇà
         yield return authManager.Login(username, password);
 
-        // ·Î±×ÀÎ ¼º°ø ÈÄ
-        if (!string.IsNullOrEmpty(authManager.accessToken)) 
+        if (!string.IsNullOrEmpty(authManager.accessToken))
         {
-            txtLog.text = "·Î±×ÀÎ ¼º°ø! ¼­¹ö ¿¬°á Áß...";
+            txtLog.text = "ë¡œê·¸ì¸ ì„±ê³µ! ì„œë²„ ì—°ê²° ì¤‘...";
 
             NetworkManager nm = FindObjectOfType<NetworkManager>();
             if (nm != null)
             {
-                Debug.Log($"UI - ´Ğ³×ÀÓ: {authManager.nickname}, ¾ÆÀÌµğ: {authManager.userId}");
                 nm.SetMyUserInfo(authManager.nickname, authManager.userId);
-
                 nm.ConnectToServer();
             }
+
+            // â˜… UI ì „í™˜
+            startUI_Panel.SetActive(false);
+            gameUI_Panel.SetActive(true);
         }
         else
         {
-            txtLog.text = "·Î±×ÀÎ ½ÇÆĞ!";
+            txtLog.text = "ë¡œê·¸ì¸ ì‹¤íŒ¨!";
         }
     }
+
     public void OnLogOutButton()
     {
         StartCoroutine(authManager.LogOut());
 
         NetworkManager nm = FindObjectOfType<NetworkManager>();
         if (nm != null)
-            nm.DisconnectFromServer();   // ¡Ú Ãß°¡
+            nm.DisconnectFromServer();
 
-        txtLog.text = "·Î±×¾Æ¿ô µÆ½À´Ï´Ù";
+        gameUI_Panel.SetActive(false);
+        startUI_Panel.SetActive(true);
+
+        txtLog.text = "ë¡œê·¸ì•„ì›ƒ ëìŠµë‹ˆë‹¤";
     }
 }

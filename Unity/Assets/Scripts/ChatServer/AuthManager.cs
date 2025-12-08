@@ -49,7 +49,7 @@ public class AuthManager : MonoBehaviour
     }
 
     // 회원가입
-    public IEnumerator Register(string username, string password, string nickname)
+    public IEnumerator Register(string username, string password, string nickname, Action<bool, string> callback)
     {
         var user = new { username, password, nickname };
         var jsonData = JsonConvert.SerializeObject(user);
@@ -64,16 +64,18 @@ public class AuthManager : MonoBehaviour
             yield return www.SendWebRequest();
 
             Debug.Log($"[Register] responseCode: {www.responseCode}, result: {www.result}");
-            if (www.downloadHandler != null)
-                Debug.Log($"[Register] body: {www.downloadHandler.text}");
+            Debug.Log($"[Register] body: {www.downloadHandler.text}");
 
             if (www.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError($"Register Error : {www.error}");
+                callback(false, www.error);     // 실패 알림
             }
             else
             {
-                Debug.Log("Registration successful");
+                if (www.responseCode == 200)
+                    callback(true, "회원가입 성공");
+                else
+                    callback(false, www.downloadHandler.text);
             }
         }
     }

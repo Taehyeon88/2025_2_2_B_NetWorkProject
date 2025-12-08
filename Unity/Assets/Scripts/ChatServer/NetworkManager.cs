@@ -104,7 +104,6 @@ public class NetworkManager : MonoBehaviour
     [SerializeField] private InputField guildNameInput;    // 길드 생성용
     [SerializeField] private Button createGuildButton;     // 생성 버튼
     [SerializeField] private Transform guildListContent;   // 길드 목록 Content (ScrollView)
-    [SerializeField] private Text selectedGuildNameText;  // 선택된 길드 표시
     [SerializeField] private GameObject guildItemPrefab;
     [SerializeField] private Button joinGuildButton;      // Join 버튼
     [SerializeField] private Button exitGuildButton;
@@ -171,13 +170,6 @@ public class NetworkManager : MonoBehaviour
                 string guildName = guildNameInput.text;
                 CreateGuild(guildName);
             });
-
-        joinGuildButton.onClick.AddListener(() =>
-        {
-            if (!string.IsNullOrEmpty(selectedGuildNameText.text))
-                JoinGuild(selectedGuildNameText.text);
-        });
-
         exitGuildButton.onClick.AddListener(ExitGuild);
     }
 
@@ -308,10 +300,6 @@ public class NetworkManager : MonoBehaviour
 
         Button btn = item.GetComponentInChildren<Button>();  
         btn.onClick.RemoveAllListeners();
-        btn.onClick.AddListener(() =>
-        {
-            selectedGuildNameText.text = guildName;  
-        });
     }
 
     private void DeleteGuildUI(string guildName)
