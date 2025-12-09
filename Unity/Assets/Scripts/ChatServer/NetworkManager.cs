@@ -738,10 +738,13 @@ public class NetworkManager : MonoBehaviour
             chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
-    
+
 
     private void DisplayChatMessage(NetworkMessage data)
     {
+        Debug.Log($"DisplayChatMessage 호출됨. text={data.text} user_id={data.user_id}");
+
+        // 기존 채팅 로그 UI 반영
         Color color = Color.white;
         ChatChannel channel = ChatChannel.General;
 
@@ -755,7 +758,77 @@ public class NetworkManager : MonoBehaviour
         }
 
         AddToChatLogColored(data.text, color, channel);
+
+        // 말풍선 표시 시도
+        // 1) user_id가 있으면 그걸로 찾기
+        if (!string.IsNullOrEmpty(data.user_id))
+        {
+            if (remotePlayers.ContainsKey(data.user_id))
+            {
+                var pc = remotePlayers[data.user_id].GetComponent<PlayerController>();
+                pc.ShowChatBubble(RemoveNickPrefix(data.text));
+                return;
+            }
+            else if (data.user_id == myPlayerId && localPlayer != null)
+            {
+                localPlayer.GetComponent<PlayerController>().ShowChatBubble(RemoveNickPrefix(data.text));
+                return;
+            }
+        }
+
+        // 2) user_id가 없거나 못 찾았으면, 텍스트 앞부분에 [닉네임]: 메시지 형식으로 들어오는 경우 닉네임으로 찾기
+        // 예시: "[333]: gdgdgd"
+        var nickname = ExtractNickFromText(data.text);
+        if (!string.IsNullOrEmpty(nickname))
+        {
+            if (localPlayer != null)
+            {
+                var localPc = localPlayer.GetComponent<PlayerController>();
+                if (localPc != null && localPc.myPlayerNickName == nickname)
+                {
+                    localPc.ShowChatBubble(RemoveNickPrefix(data.text));
+                }
+            }
+
+            foreach (var kvp in remotePlayers)
+            {
+                var go = kvp.Value;
+                if (go == null) continue;
+                var pc = go.GetComponent<PlayerController>();
+                if (pc != null && pc.myPlayerNickName == nickname)
+                {
+                    pc.ShowChatBubble(RemoveNickPrefix(data.text));
+                }
+            }
+        }
+
+        Debug.LogWarning("말풍선 표시 실패(유저 매칭 불가). text=" + data.text + " user_id=" + data.user_id);
     }
+
+    private string RemoveNickPrefix(string text)
+    {
+        // "[닉네임]: 내용" 형태인지 체크
+        int idx = text.IndexOf("]:");
+        if (idx != -1)
+        {
+            return text.Substring(idx + 2).Trim();
+        }
+        return text; // 해당 패턴이 아니면 그대로 반환
+    }
+
+    private string ExtractNickFromText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+
+        System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(text, @"^\s*\[(.+?)\]\s*:\s*(.*)$");
+        if (m.Success)
+        {
+            return m.Groups[1].Value;
+        }
+
+        return null;
+    }
+
     private void UpdateStatusText (string status, Color color)
     {
         if(statusText != null)

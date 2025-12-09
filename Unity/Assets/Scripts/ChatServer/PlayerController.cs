@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -17,40 +18,90 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rotateSpeed = 720f; // 회전 속도
     private Transform cameraTransform;
 
-    [HideInInspector]
-    public Text nameTag; // 프리팹에 있는 Text를 참조
+ 
+    public Text nameTag;
+
+
+    public Text chatText;     
+    private GameObject chatBubble; 
 
     private Vector3 moveDirection;
 
     void Start()
     {
-        nameTag = GetComponentInChildren<Text>();
+        // 1) 닉네임 태그 찾기
+        nameTag = GetComponentsInChildren<Text>(true)
+                    .FirstOrDefault(t => t.name == "NickName");
+
         if (nameTag != null)
         {
             nameTag.text = myPlayerNickName;
-
             if (isLocalPlayer)
-                nameTag.gameObject.SetActive(false); 
+                nameTag.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogError($"[{name}] NickName Text 못 찾음");
         }
 
-        cameraTransform = Camera.main.transform;
+        // 2) 챗버블 찾기 (무조건 GetComponentInChildren 사용)
+        chatBubble = transform.Find("ChatBubble")?.gameObject;
+
+        if (chatBubble == null)
+        {
+            Debug.LogError("ChatBubble 오브젝트 못 찾음!");
+        }
+        else
+        {
+            chatText = chatBubble.GetComponentsInChildren<Text>(true)
+                                 .FirstOrDefault(t => t.name == "ChatText");
+
+            if (chatText == null)
+                Debug.LogError("ChatText 못 찾음!");
+
+            // 텍스트만 끄기
+            chatText.gameObject.SetActive(false);
+        }
+
+        // 4) 카메라
+        cameraTransform = Camera.main != null ? Camera.main.transform : null;
     }
 
     void LateUpdate()
     {
-        if (nameTag != null && cameraTransform != null)
+        if (cameraTransform == null) return;
+
+        // 카메라 방향에서 Y축만 반영
+        Vector3 dir = cameraTransform.forward;
+        dir.y = 0;
+        dir.Normalize();
+
+        Quaternion rot = Quaternion.LookRotation(dir);
+
+        // 닉네임
+        if (nameTag != null)
+            nameTag.transform.rotation = rot;
+
+        // 말풍선
+        if (chatBubble != null)
+            chatBubble.transform.rotation = rot;
+    }
+    public void ShowChatBubble(string msg)
+    {
+        if (chatText == null)
         {
-            Vector3 camPos = cameraTransform.position;
-            Vector3 tagPos = nameTag.transform.position;
-
-            Vector3 direction = new Vector3(camPos.x - tagPos.x, 0f, camPos.z - tagPos.z);
-
-            if (direction.sqrMagnitude > 0.001f)
-            {
-                nameTag.transform.rotation = Quaternion.LookRotation(direction);
-                nameTag.transform.Rotate(0, 180, 0); 
-            }
+            Debug.LogError("CHAT TEXT NULL!!!!!");
+            return;
         }
+
+        chatText.text = msg;
+        chatText.gameObject.SetActive(true);
+        StartCoroutine(HideChatBubbleAfterDelay());
+    }
+    IEnumerator HideChatBubbleAfterDelay()
+    {
+        yield return new WaitForSeconds(5f);
+        chatText.gameObject.SetActive(false);
     }
 
     void Update()

@@ -68,14 +68,19 @@ public class AuthManager : MonoBehaviour
 
             if (www.result != UnityWebRequest.Result.Success)
             {
-                callback(false, www.error);     
+                callback(false, www.error);
             }
             else
             {
-                if (www.responseCode == 200)
+                // ★ 200~299는 모두 성공 처리
+                if (www.responseCode >= 200 && www.responseCode < 300)
+                {
                     callback(true, "회원가입 성공");
+                }
                 else
+                {
                     callback(false, www.downloadHandler.text);
+                }
             }
         }
     }

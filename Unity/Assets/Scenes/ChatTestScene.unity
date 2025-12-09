@@ -6175,7 +6175,7 @@ MonoBehaviour:
     type: 3}
   localPlayer: {fileID: 0}
   positionSendRate: 0.01
-  remotePlayerPrefab: {fileID: 3217206927184559696, guid: 59945184f5588124cad4b982422bfbb0,
+  remotePlayerPrefab: {fileID: 8949933072492086500, guid: 4bd30801f80332646a97dc15538e373b,
     type: 3}
   channelButtons:
   - {fileID: 6310428185237593805}
