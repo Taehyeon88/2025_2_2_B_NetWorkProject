@@ -68,7 +68,7 @@ public class AuthManager : MonoBehaviour
 
             if (www.result != UnityWebRequest.Result.Success)
             {
-                callback(false, www.error);     // 실패 알림
+                callback(false, www.error);     
             }
             else
             {
