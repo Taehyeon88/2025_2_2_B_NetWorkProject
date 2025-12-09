@@ -76,7 +76,7 @@ public class NetworkManager : MonoBehaviour
     [SerializeField] private ScrollRect chatScrollRect;
     [Header("PlayerSetting")]
     [SerializeField] private GameObject playerPrefab;     //내 플레이어
-    private GameObject localPlayer;    //다른 플레이어 Prefabs
+    public GameObject localPlayer;    //다른 플레이어 Prefabs
     [SerializeField] private float positionSendRate = 0.1f;    //위치 전송 간격
     public GameObject remotePlayerPrefab;
     [Header("Channel Buttons")]
@@ -113,6 +113,8 @@ public class NetworkManager : MonoBehaviour
     [SerializeField] private Button acceptButton;
     [SerializeField] private Button declineButton;
     [SerializeField] private Button leavePartyButton;
+
+    private bool ignoreInputThisFrame = false; 
 
     private string currentInviterId;
     private string currentInviterNickname;
@@ -344,10 +346,19 @@ public class NetworkManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+
+        if (ignoreInputThisFrame)
+        {
+            ignoreInputThisFrame = false; 
+                                         
+            return;
+        }
+
 #if !UNITY_WEBGL || UNITY_EDITOR
         if (webSocket != null) webSocket.DispatchMessageQueue();
 #endif
 
+        // 위치 전송
         if (webSocket != null && webSocket.State == WebSocketState.Open && localPlayer != null)
         {
             if (Time.time - lastPositionSendTime >= positionSendRate)
@@ -356,9 +367,53 @@ public class NetworkManager : MonoBehaviour
                 lastPositionSendTime = Time.time;
             }
         }
+
+        if ((Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            && messageInput != null
+            && !messageInput.isFocused)
+        {
+            messageInput.ActivateInputField();
+
+            ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
+            if (cam != null)
+                cam.enabled = false;
+
+            if (NetworkManager.Instance.localPlayer != null)
+            {
+                PlayerController pc = NetworkManager.Instance.localPlayer.GetComponent<PlayerController>();
+                if (pc != null)
+                    pc.enabled = false;
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape) && messageInput != null && messageInput.isFocused)
+        {
+            EndChatInput();
+        }
     }
 
-    public async void ConnectToServer()      //서버 연결 함수 (+ 서버 이벤트 구독 함수)
+    private void EndChatInput()
+    {
+        messageInput.DeactivateInputField();
+
+        // 플레이어 입력 복구
+        if (NetworkManager.Instance.localPlayer != null)
+        {
+            PlayerController pc = NetworkManager.Instance.localPlayer.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.enabled = true;
+
+                Input.ResetInputAxes();
+            }
+
+            ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
+            if (cam != null)
+                cam.enabled = true;
+        }
+    }
+
+    public async void ConnectToServer()      
     {
         if(webSocket != null && webSocket.State == WebSocketState.Open)
         {
@@ -569,7 +624,7 @@ public class NetworkManager : MonoBehaviour
             chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
-    private async void SendChatMessage()     
+    private async void SendChatMessage()
     {
         if (string.IsNullOrEmpty(messageInput.text)) return;
 
@@ -582,6 +637,7 @@ public class NetworkManager : MonoBehaviour
         NetworkMessage msg = new NetworkMessage();
         msg.text = messageInput.text;
 
+        // 기존 채널/커넥트 타입 처리
         switch (currentConnectType)
         {
             case ConnectType.create: msg.connectType = "create"; break;
@@ -604,8 +660,31 @@ public class NetworkManager : MonoBehaviour
         }
 
         await webSocket.SendText(JsonConvert.SerializeObject(msg));
+
+        // 채팅 입력 종료
         messageInput.text = "";
-        messageInput.ActivateInputField(); 
+        messageInput.DeactivateInputField();
+
+        ignoreInputThisFrame = true;
+
+        // 카메라와 플레이어 입력 복구
+        ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
+        if (cam != null)
+            cam.enabled = true;
+
+        if (NetworkManager.Instance.localPlayer != null)
+        {
+            // PlayerController 활성화
+            PlayerController pc = NetworkManager.Instance.localPlayer.GetComponent<PlayerController>();
+            if (pc != null)
+                pc.enabled = true;
+
+            // 카메라 타겟 설정
+            if (cam != null)
+                cam.SetTarget(NetworkManager.Instance.localPlayer.transform);
+        }
+
+        EndChatInput();
     }
 
     private string ExtractTargetNick(string rawMessage)

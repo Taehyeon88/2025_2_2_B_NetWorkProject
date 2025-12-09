@@ -14,8 +14,8 @@ public class RegisterUI : MonoBehaviour
 
     public AuthManager authManager;
 
-    public GameObject startUI_Panel;   // 로그인 UI 전체 묶음
-    public GameObject gameUI_Panel;    // 게임 UI 전체 묶음
+    public GameObject startUI_Panel;   
+    public GameObject gameUI_Panel;   
 
     public void OnRegisterButton()
     {
