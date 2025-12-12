@@ -72,7 +72,6 @@ public class AuthManager : MonoBehaviour
             }
             else
             {
-                // ★ 200~299는 모두 성공 처리
                 if (www.responseCode >= 200 && www.responseCode < 300)
                 {
                     callback(true, "회원가입 성공");
@@ -171,6 +170,12 @@ public class AuthManager : MonoBehaviour
             {
                 Debug.LogError($"Logout Error: {www.error}");
             }
+        }
+
+        NetworkManager nm = FindObjectOfType<NetworkManager>();
+        if (nm != null)
+        {
+            nm.myPlayerId = null;      
         }
     }
     [System.Serializable]

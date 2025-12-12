@@ -685,12 +685,10 @@ public class NetworkManager : MonoBehaviour
 
         if (NetworkManager.Instance.localPlayer != null)
         {
-            // PlayerController 활성화
             PlayerController pc = NetworkManager.Instance.localPlayer.GetComponent<PlayerController>();
             if (pc != null)
                 pc.enabled = true;
 
-            // 카메라 타겟 설정
             if (cam != null)
                 cam.SetTarget(NetworkManager.Instance.localPlayer.transform);
         }
