@@ -159,7 +159,7 @@ CREATE TABLE message_permanent(
     target_room_id INT UNSIGNED NULL COMMENT'대상 톡방(chat_rooms.chat_room_id)',
     target_guild_id INT UNSIGNED NULL COMMENT'대상 길드(guilds.guild_id)',
     target_user_id INT UNSIGNED NULL COMMENT'대상 유저(users.user_id)',
-    target_region_id INT UNSIGNED NULL COMMENT '해당 지역 위치(regions.region_id)',
+    -- target_region_id INT UNSIGNED NULL COMMENT '해당 지역 위치(regions.region_id)',
     target_party_id INT UNSIGNED NULL COMMENT '대상 파티(parties.party_id)',
     -- 시간 기록
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시간',
@@ -175,7 +175,7 @@ CREATE TABLE message_permanent(
     -- parties 테이블과 연결
     FOREIGN KEY (target_party_id) REFERENCES parties(party_id) ON DELETE SET NULL ON UPDATE CASCADE,
     -- regions 테이블과 연결
-    FOREIGN KEY (target_region_id) REFERENCES regions(region_id) ON DELETE SET NULL ON UPDATE CASCADE,
+    -- FOREIGN KEY (target_region_id) REFERENCES regions(region_id) ON DELETE SET NULL ON UPDATE CASCADE,
     
    -- CHECK(
    -- 	(message_type = 'CHAT' AND sender_id IS NOT NULL AND sender_nickname IS NOT NULL 
