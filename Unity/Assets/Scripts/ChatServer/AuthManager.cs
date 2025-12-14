@@ -68,7 +68,7 @@ public class AuthManager : MonoBehaviour
 
             if (www.result != UnityWebRequest.Result.Success)
             {
-                callback(false, www.error);
+                callback(false, www.downloadHandler.text);
             }
             else
             {
@@ -85,7 +85,7 @@ public class AuthManager : MonoBehaviour
     }
 
     // 로그인
-    public IEnumerator Login(string username, string password)
+    public IEnumerator Login(string username, string password, Action<bool, string> callBack)
     {
         var user = new { username, password };
         var jsonData = JsonConvert.SerializeObject(user);
@@ -109,7 +109,8 @@ public class AuthManager : MonoBehaviour
                 refreshToken = null;
                 userId = 0;
                 nickname = "UnKnown";
-                Debug.LogError($"Login Error : {www.error}");
+                callBack(false, www.downloadHandler.text);
+                Debug.LogError($"Login Error : {www.downloadHandler.text}");
                 yield break; // 코루틴 종료
             }
             else
@@ -178,6 +179,7 @@ public class AuthManager : MonoBehaviour
             nm.myPlayerId = null;      
         }
     }
+
     [System.Serializable]
     public class LoginResponse
     {

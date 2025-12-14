@@ -2893,10 +2893,10 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 610258491}
   - {fileID: 1979075177}
   - {fileID: 1352431546}
   - {fileID: 275019608}
-  - {fileID: 610258491}
   - {fileID: 552972384}
   - {fileID: 1242630281}
   m_Father: {fileID: 1632167585}
@@ -3781,7 +3781,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 116.9937, y: 65.809}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1564087823
 MonoBehaviour:
@@ -6191,6 +6191,7 @@ MonoBehaviour:
   currentConnectType: 2
   connectButton: {fileID: 1799467560}
   myNickname: 
+  myGuildname: 
   guildPanel: {fileID: 1242584447}
   guildNameInput: {fileID: 275019609}
   createGuildButton: {fileID: 610258492}

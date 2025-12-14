@@ -69,7 +69,7 @@ router.post('/login', async(req, res) => {
 
         if(user.length <= 0 || !(await bcrypt.compare(password, user[0].passward)))
         {
-            return res.status(400).json({error : '잘못된 사용자면 또는 비밀번호입니다.'});
+            return res.status(400).json({error : '잘못된 사용자 또는 비밀번호입니다.'});
         }
 
         console.log(user[0].user_id);

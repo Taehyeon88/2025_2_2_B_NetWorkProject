@@ -5,7 +5,6 @@ using NativeWebSocket;
 using Newtonsoft.Json;
 using UnityEngine.UI;
 using System;
-using UnityEngine.Assertions.Must;
 [Serializable]
 public class NetworkMessage
 {
@@ -23,6 +22,8 @@ public class NetworkMessage
 
     public string error;          //서버의 피드백을 받는용
     public string guildName;
+
+    public string guildNames;     //로그인 시, 서버에서 받을 길드 이름들
 }
 
 public enum ChatChannel
@@ -95,6 +96,7 @@ public class NetworkManager : MonoBehaviour
 
     [HideInInspector]
     public string myNickname;  //로그인 시 받게 되는 user_nickname
+    public string myGuildname; //로그인 시 받을 수 있는 user_guildname
 
     private Dictionary<string, GameObject> remotePlayers = new Dictionary<string, GameObject>();
     private float lastPositionSendTime;
@@ -193,7 +195,7 @@ public class NetworkManager : MonoBehaviour
             chatType = "PARTY"
         };
         await webSocket.SendText(JsonConvert.SerializeObject(msg));
-        AddToChatLog($"[시스템] {targetPlayerId}에게 파티 초대를 보냈습니다.");
+        AddToChatLog($"[시스템] 대상에게 파티 초대를 보냈습니다.");
 
         if (!currentParty.ContainsKey(myPlayerId))
             currentParty.Add(myPlayerId, myNickname);
@@ -345,6 +347,7 @@ public class NetworkManager : MonoBehaviour
         PlayerController pc = localPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = myNickname;
         pc.myPlayerNickName = myNickname;
+        //pc.myGuildName = myGuildname;
         pc.isLocalPlayer = true;
 
         ThirdPersonCamera cam = Camera.main.GetComponent<ThirdPersonCamera>();
@@ -521,7 +524,8 @@ public class NetworkManager : MonoBehaviour
             {
                 if (data.connectType == "create" || data.connectType == "join")
                 {
-                    string guildName = data.guildName; 
+                    string guildName = data.guildName;
+                    myGuildname = data.guildName;
                     UpdateGuildUI(guildName, myPlayerId, data.connectType);
                 }
                 else if (data.connectType == "destroy")
@@ -581,11 +585,18 @@ public class NetworkManager : MonoBehaviour
             {
                 case "login":
                     AddToChatLog(data.text);
+                    if (!string.IsNullOrEmpty(data.guildNames))    //게임을 처음 들어 올시, 길드 이름들 갱신
+                    {
+                        Debug.Log($"작동한다, 길드 이름들 : {data.guildNames}");
+                        string[] names = data.guildNames.Split(",");
+                        foreach (string name in names)
+                            UpdateGuildUI(name.Trim(), myPlayerId, data.connectType);
+                    }
                     break;
 
                 case "positionUpdate":
                     if (data.user_id != myPlayerId)
-                        UpdateRemotePlayer(data.user_id, data.nickname, data.position, data.rotation);
+                        UpdateRemotePlayer(data.user_id, data.nickname, data.guildName, data.position, data.rotation);
                     break;
 
                 case "playerJoin":
@@ -858,7 +869,7 @@ public class NetworkManager : MonoBehaviour
         remotePlayers.Add(playerId, remote);
     }
 
-    private void CreateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)
+    private void CreateRemotePlayer(string playerId, string playerNickName, string guildName, Vecter3Data position, Vecter3Data rotation)
     {
         if (remotePlayers.ContainsKey(playerId)) return;
 
@@ -870,6 +881,7 @@ public class NetworkManager : MonoBehaviour
         PlayerController pc = newPlayer.GetComponent<PlayerController>();
         pc.myPlayerId = playerId;
         pc.myPlayerNickName = playerNickName;
+        pc.myGuildName = guildName;
         pc.isLocalPlayer = false;
 
 
@@ -886,16 +898,19 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void UpdateRemotePlayer(string playerId, string playerNickName, Vecter3Data position, Vecter3Data rotation)
+    private void UpdateRemotePlayer(string playerId, string playerNickName, string guildName, Vecter3Data position, Vecter3Data rotation)
     {
         if (!remotePlayers.ContainsKey(playerId))
         {
-            CreateRemotePlayer(playerId, playerNickName, position, rotation);
+            CreateRemotePlayer(playerId, playerNickName, guildName, position, rotation);
             return;
         }
 
         GameObject player = remotePlayers[playerId];
         if (player == null) return;
+
+        PlayerController pc = player.GetComponent<PlayerController>();  //길드 이름 실시간 갱신
+        if (pc != null) pc.myGuildName = guildName; 
 
         if (position != null)
             player.transform.position = Vector3.Lerp(player.transform.position, position.ToVector3(), Time.deltaTime * 10f);
@@ -943,6 +958,4 @@ public class NetworkManager : MonoBehaviour
             chatScrollRect.verticalNormalizedPosition = 0f;
         }
     }
-
-
 }

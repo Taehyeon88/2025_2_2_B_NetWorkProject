@@ -39,15 +39,25 @@ class GameServer {
                      {
                       this.clients.add(socket);
                       playerId = data.user_id;
-                     playerNickName = await getNickname(playerId);
+                      playerNickName = await getNickname(playerId);
+
+                      const guild_id = await findGuildIdByUserId(playerId);
+                      let guildName = "";
+                      if(guild_id)
+                      {
+                          guildName = await findGuildName(guild_id);    //길드 이름 추가
+                      }
+
+                      const guildNames = await GetAllGuildNames();
 
                      await pool.query('UPDATE users SET is_online = 1 WHERE user_id = ?', [playerId]);
 
                      this.players.set(playerId, {
                       socket : socket,
                       nickname : playerNickName,
+                      guildname : guildName,
                       position: {x:0, y:0, z:0},
-                    rotation: {x:0, y:0, z:0}
+                      rotation: {x:0, y:0, z:0}
                       });
 
                         //기존 플레이어들 정보를 새 플레이어에게 전송
@@ -57,13 +67,22 @@ class GameServer {
                                 const joinMsg = {
                                 type: 'playerjoin',
                                 user_id : playerId,
-                                nickname : player.nickname
+                                nickname : player.nickname,
+                                guildName : player.guildname,
+                                guildNames : guildNames
                                 };
                             socket.send(JSON.stringify(joinMsg));
                             console.log(`기존 플레이어 정보 전송 : ${pid} -> ${playerId}`);
-                            } 
-                        });                        
+                            }
+                        });
+                        
+                        //새로 들어온 플레이어에게 길드이름들 전달
+                        console.log(guildNames);
+                        data.guildNames = guildNames;
+                        socket.send(JSON.stringify(data));
+                        console.log(`자기 자신에게 정보 전달`);
 
+                        //새로운 플레이어 입장 알리기
                         const m = {type: "login", text : `${playerNickName}님이 서버에 접속하셨습니다!`};
                         this.broadcast(m, this.clients, playerNickName);
                         return;
@@ -81,7 +100,6 @@ class GameServer {
                         {
                             player.rotation = data.rotation;
                         }
-                        
 
                         //console.log(`플레이어: ${playerId}, 위치: ${data.position}`)
 
@@ -90,6 +108,7 @@ class GameServer {
                             type: 'positionUpdate',
                             user_id: playerId,
                             nickname: playerNickName,
+                            guildName: player.guildname,
                             position: player.position,
                             rotation: player.rotation
                         };
@@ -119,6 +138,7 @@ class GameServer {
                                     const guild_id0 = await findGuildIdByName(data.text);
                                     await joinGuild(playerId, guild_id0, true);   //길드 가입
                                     data.guildName = data.text;             //길드 이름 추가
+                                    this.SetGuildName(playerId, data.guildName); //길드 이름 추가2
                                     this.broadcast(data, this.clients, playerNickName); //생성 브로드 캐스팅   
                                 break;
                                 case "join": 
@@ -137,6 +157,7 @@ class GameServer {
                                     await joinGuild(playerId, guild_id, false);   //길드 가입
                                     const user_ids = await findGuildUserIds(guild_id);
                                     data.guildName = data.text;             //길드 이름 추가
+                                    this.SetGuildName(playerId, data.guildName); //길드 이름 추가2
                                     this.broadcast(data, await findAllsockets(user_ids, this.players), playerNickName);
                                 break;
                                 case "chat":
@@ -171,12 +192,14 @@ class GameServer {
                                         await DestroyGuild(guild_id3);   //길드 파괴
                                         data.connectType = "destroy";
                                         data.user_id = playerId;
+                                        this.DeleteAllGuildNames(user_ids3);  //해당 길드의 모든 대상 길드이름 데이터 초기화
                                         this.broadcast(data, this.clients, playerNickName);
                                     }
                                     else
                                     {
                                         await exitGuild(playerId);    //길드 나가기
                                         data.user_id = playerId;
+                                        this.SetGuildName(playerId, ""); //길드 이름 추가2
                                         this.broadcast(data, await findAllsockets(user_ids3, this.players), playerNickName);
                                     }
                                 break;
@@ -191,6 +214,7 @@ class GameServer {
                                 break;
 
                                 case "partyInvite":
+                                    console.log(playerNickName);
                                 const targetSocket = this.players.get(data.target_id)?.socket;
                                 if(targetSocket && targetSocket.readyState === WebSocket.OPEN) {
                                     targetSocket.send(JSON.stringify({
@@ -226,7 +250,7 @@ class GameServer {
                                 case "chat":
                                     if(await checkPartyExist(playerId) == 0)  //소속 길드 존재 여부 체크
                                     {
-                                        socket.send(JSON.stringify({error : '가입된 길드가 없습니다.'}));
+                                        socket.send(JSON.stringify({error : '가입된 파티가 없습니다.'}));
                                         return;
                                     }
                                     const party_id2 = await findPartyIdByUserId(playerId);
@@ -238,7 +262,7 @@ class GameServer {
                                 case "exit": 
                                     if(await checkPartyExist(playerId) == 0)  //소속 길드 존재 여부 체크
                                     {
-                                        socket.send(JSON.stringify({error : '가입된 길드가 없습니다.'}));
+                                        socket.send(JSON.stringify({error : '가입된 파티가 없습니다.'}));
                                         return;
                                     }
                                     const party_id3 = await findPartyIdByUserId(playerId);
@@ -325,27 +349,30 @@ class GameServer {
                 
             });
 
-            socket.on('close', async () => {
+            socket.on('close', async () => 
+            {
+                if (!playerId) return;
 
-    if (!playerId) return;
+                this.clients.delete(socket);
+                this.players.delete(playerId);
 
-    this.clients.delete(socket);
-    this.players.delete(playerId);
+                try 
+                {
+                    await pool.query('UPDATE users SET is_online = 0 WHERE user_id = ?', [playerId]);
+                } 
+                catch (err) 
+                {
+                   console.error("유저 offline 업데이트 실패:", err);
+                }
 
-    try {
-        await pool.query('UPDATE users SET is_online = 0 WHERE user_id = ?', [playerId]);
-    } catch (err) {
-        console.error("유저 offline 업데이트 실패:", err);
-    }
+                const m = {
+                    type: "close",
+                    user_id: playerId,
+                    text: `${playerNickName}님이 서버를 나가셨습니다!`
+                };
 
-    const m = {
-        type: "close",
-        user_id: playerId,
-        text: `${playerNickName}님이 서버를 나가셨습니다!`
-    };
-
-    this.broadcast(m, this.clients, playerNickName);
-});
+                this.broadcast(m, this.clients, playerNickName);
+            });
 
             socket.on('error', (error) => {
                 console.error('소켓 에러 : ', error);
@@ -419,6 +446,36 @@ broadcast(data, clients, playerNickName)
         }
     });
   }
+
+    SetGuildName(playerId, guildname)
+    {
+       const player = this.players.get(playerId);
+       if(player)
+        {
+           player.guildname = guildname;
+           console.log(`플레이어(${playerId})의 길드가 '${player.guildname}'(으)로 변경되었습니다.`);
+        }
+       else 
+        {
+            console.log("해당 플레이어를 찾을 수 없습니다.");
+        }
+    }
+
+    DeleteAllGuildNames(userIds)
+    {
+        userIds.forEach(userId => {
+            const player = this.players.get(userId);
+            if(player)
+            {
+                player.guildName = "";
+                console.log(`플레이어(${player.playerNickName})의 길드가 '${player.guildname}'(으)로 변경되었습니다.`);
+            }
+            else
+            {
+                console.log("해당 플레이어를 찾을 수 없습니다.");
+            }
+        });
+    }
 }
 
     async function checkGuildExist(user_id)  //가입한 길드 존재 여부 체크
@@ -532,6 +589,34 @@ broadcast(data, clients, playerNickName)
         }        
     }
 
+    async function GetAllGuildNames() 
+    {
+        try
+        {
+            const [rows] = await pool.query(
+            'SELECT guild_name FROM guilds'
+            );
+            //console.log(rows.map(row => row.guild_name));
+            if(rows.length > 0)
+            {
+                let text = "";
+                const guildNames = rows.map(row => row.guild_name);
+                guildNames.forEach((guild_name) => 
+                {
+                    if(text !== "") text += ", ";
+                    text += guild_name;
+                });
+                //console.log(text);
+                return text;
+            }
+            return null;
+        }
+        catch(error)
+        {
+            console.error(`DB 모든 길드 조회 에러:`, error);
+            return null;
+        }
+    }
     
     async function findGuildIdByUserId(user_id)
     {

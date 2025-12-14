@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,6 +19,7 @@ public class PlayerController : MonoBehaviour
 
  
     public Text nameTag;
+    public Text guildTag;
 
 
     public Text chatText;     
@@ -29,9 +29,12 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
-        // 1) 닉네임 태그 찾기
+        // 1) 닉네임, 길드이름 태그 찾기
         nameTag = GetComponentsInChildren<Text>(true)
                     .FirstOrDefault(t => t.name == "NickName");
+
+        guildTag = GetComponentsInChildren<Text>(true)
+                     .FirstOrDefault(t => t.name == "GuidName");
 
         if (nameTag != null)
         {
@@ -42,6 +45,17 @@ public class PlayerController : MonoBehaviour
         else
         {
             Debug.LogError($"[{name}] NickName Text 못 찾음");
+        }
+
+        if (guildTag != null)
+        {
+            guildTag.text = myGuildName;
+            if (isLocalPlayer)
+                guildTag.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogError($"[{name}] GuildName Text 못 찾음");
         }
 
         // 2) 챗버블 찾기 (무조건 GetComponentInChildren 사용)
@@ -81,6 +95,12 @@ public class PlayerController : MonoBehaviour
         // 닉네임
         if (nameTag != null)
             nameTag.transform.rotation = rot;
+
+        if(guildTag != null)
+        {
+            guildTag.transform.rotation = rot;
+            guildTag.text = myGuildName;
+        }
 
         // 말풍선
         if (chatBubble != null)

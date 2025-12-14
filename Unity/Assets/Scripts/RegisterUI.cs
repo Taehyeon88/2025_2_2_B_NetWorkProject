@@ -50,7 +50,12 @@ public class RegisterUI : MonoBehaviour
 
     private IEnumerator LoginAndConnect(string username, string password)
     {
-        yield return authManager.Login(username, password);
+        string errorText = "";
+        yield return authManager.Login(username, password, 
+            (success, message) => 
+            {
+                if (!success) errorText = message;
+            });
 
         if (!string.IsNullOrEmpty(authManager.accessToken))
         {
@@ -69,7 +74,7 @@ public class RegisterUI : MonoBehaviour
         }
         else
         {
-            txtLog.text = "로그인 실패!";
+            txtLog.text = $"로그인 실패! : {errorText}";
         }
     }
 
