@@ -491,7 +491,9 @@ MonoBehaviour:
   myGuildName: 
   moveSpeed: 5
   rotateSpeed: 100
+  playerUIParent: {fileID: 3406493967616601451}
   nameTag: {fileID: 1456855090308337488}
+  guildTag: {fileID: 1373196054637719353}
   chatText: {fileID: 5294616947960903239}
 --- !u!1 &9203556841181563569
 GameObject:

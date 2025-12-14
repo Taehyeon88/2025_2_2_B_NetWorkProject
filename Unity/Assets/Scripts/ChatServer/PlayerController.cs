@@ -17,7 +17,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rotateSpeed = 720f; // 회전 속도
     private Transform cameraTransform;
 
- 
+
+    public GameObject playerUIParent;
     public Text nameTag;
     public Text guildTag;
 
@@ -26,6 +27,8 @@ public class PlayerController : MonoBehaviour
     private GameObject chatBubble; 
 
     private Vector3 moveDirection;
+
+    private GameObject localPlayer;
 
     void Start()
     {
@@ -81,6 +84,12 @@ public class PlayerController : MonoBehaviour
         cameraTransform = Camera.main != null ? Camera.main.transform : null;
     }
 
+    private void OnEnable()
+    {
+        if (localPlayer == null && !isLocalPlayer)
+            localPlayer = GameObject.FindWithTag("LocalPlayer");
+    }
+
     void LateUpdate()
     {
         if (cameraTransform == null) return;
@@ -90,21 +99,23 @@ public class PlayerController : MonoBehaviour
         dir.y = 0;
         dir.Normalize();
 
-        Quaternion rot = Quaternion.LookRotation(dir);
-
-        // 닉네임
-        if (nameTag != null)
-            nameTag.transform.rotation = rot;
-
-        if(guildTag != null)
+        if(!isLocalPlayer)
         {
-            guildTag.transform.rotation = rot;
-            guildTag.text = myGuildName;
-        }
+            Vector3 direction = (transform.position - localPlayer.transform.position).normalized;
+            direction.y = 0;
+            Quaternion quaternion = Quaternion.LookRotation(direction, Vector3.up);
 
-        // 말풍선
-        if (chatBubble != null)
-            chatBubble.transform.rotation = rot;
+            // 닉네임
+            if (playerUIParent != null)
+                playerUIParent.transform.rotation = quaternion;
+
+            if (guildTag != null)
+                guildTag.text = myGuildName;
+
+            // 말풍선
+            if (chatBubble != null)
+                chatBubble.transform.rotation = quaternion;
+        }
     }
     public void ShowChatBubble(string msg)
     {
