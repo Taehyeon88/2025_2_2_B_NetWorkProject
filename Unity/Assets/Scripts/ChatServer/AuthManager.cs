@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 
 public class AuthManager : MonoBehaviour
 {
-    private const string SERVER_URL = "http://218.237.137.145:4000";
+    private const string SERVER_URL = "http://172.16.5.85:4000";
     private const string ACCESS_TOKEN_PREFS_KEY = "AccessToken";
     private const string REFRESH_TOKEN_PREFS_KEY = "RefreshToken";
     private const string TOKEN_EXPIRY_PREFS_KEY = "TokenExpiry";

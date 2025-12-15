@@ -5144,7 +5144,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1986492340
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6210,7 +6210,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df80623ac002f7a45b1a5d062f9c6a56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverUrl: ws://218.237.137.145:4000
+  serverUrl: ws://172.16.5.85:4000
   messageInput: {fileID: 2033590825165402853}
   chatLog: {fileID: 3243529321859319098}
   statusText: {fileID: 8269921478706658059}
