@@ -101,6 +101,8 @@ public class PlayerController : MonoBehaviour
 
         if(!isLocalPlayer)
         {
+            if (localPlayer == null) return;
+
             Vector3 direction = (transform.position - localPlayer.transform.position).normalized;
             direction.y = 0;
             Quaternion quaternion = Quaternion.LookRotation(direction, Vector3.up);

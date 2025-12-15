@@ -68,7 +68,7 @@ public class NetworkManager : MonoBehaviour
     public static NetworkManager Instance { get; private set; }
 
     private WebSocket webSocket;
-    [SerializeField] private string serverUrl = "ws://172.16.5.85:4000";
+    [SerializeField] private string serverUrl = "ws://172.16.5.59:4000";
 
     [Header("UI Elements")]
     [SerializeField] private InputField messageInput;
