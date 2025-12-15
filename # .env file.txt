@@ -1,0 +1,15 @@
+# .env file
+
+# Server Configuation
+PORT = 4000
+
+#JWT configuation
+JWT_SECRET = your_jwt_secret_key_here
+REFRESH_TOKEN_SECRET = your_refresh_token_secret_key_here
+
+DB_HOST = localhost
+DB_USER = root
+DB_PASSWORD = 112233
+DB_NAME = chatdb
+
+maxDistance = 30
